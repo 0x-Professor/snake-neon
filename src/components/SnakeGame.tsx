@@ -1,3 +1,4 @@
+
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Environment } from '@react-three/drei';
@@ -218,7 +219,7 @@ export const SnakeGame: React.FC = () => {
           shake={cameraShake}
         />
         
-        {/* Post-processing Effects */}
+        {/* Post-processing Effects - Fixed props */}
         <EffectComposer>
           <Bloom 
             intensity={0.5}
@@ -231,7 +232,6 @@ export const SnakeGame: React.FC = () => {
             bokehScale={2}
           />
           <Vignette 
-            eskil={false}
             offset={0.1}
             darkness={0.9}
           />
@@ -270,7 +270,7 @@ export const SnakeGame: React.FC = () => {
           </button>
           <button
             onTouchStart={() => pauseGame()}
-            className="w-14 h-14 bg-purple-500/30 border-2 border-purple-400/50 rounded-xl flex items-center justify-center backdrop-blur-md shadow-lg shadow-purple-400/25"
+            className="w-14 h-14 bg-purple-500/30 border-2 border-purple-400/50 rounded-xl flex items-center justify-center backdrop-blur-md shadow-lg shadow-cyan-400/25"
           >
             <span className="text-purple-400 text-sm font-bold">⏸</span>
           </button>
