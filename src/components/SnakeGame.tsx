@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Text, Box } from '@react-three/drei';
+import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { useGameStore } from '../store/gameStore';
 import { GameHUD } from './GameHUD';
@@ -29,17 +29,14 @@ const SnakeSegment: React.FC<SnakeSegmentProps> = ({ position, isHead = false })
   }, [isHead]);
 
   return (
-    <Box
-      ref={meshRef}
-      position={position}
-      args={[CELL_SIZE * 0.9, CELL_SIZE * 0.9, CELL_SIZE * 0.9]}
-    >
+    <mesh ref={meshRef} position={position}>
+      <boxGeometry args={[CELL_SIZE * 0.9, CELL_SIZE * 0.9, CELL_SIZE * 0.9]} />
       <meshPhongMaterial 
         color={isHead ? "#00ffff" : "#0099cc"} 
         emissive={isHead ? "#004444" : "#002233"}
         shininess={100}
       />
-    </Box>
+    </mesh>
   );
 };
 
@@ -56,26 +53,23 @@ const Food: React.FC<FoodProps> = ({ position, type }) => {
       const animate = () => {
         if (meshRef.current) {
           meshRef.current.rotation.y += 0.02;
-          meshRef.current.position.y = Math.sin(Date.now() * 0.005) * 0.1;
+          meshRef.current.position.y = position[1] + Math.sin(Date.now() * 0.005) * 0.1;
         }
         requestAnimationFrame(animate);
       };
       animate();
     }
-  }, []);
+  }, [position]);
 
   return (
-    <Box
-      ref={meshRef}
-      position={position}
-      args={[CELL_SIZE * 0.8, CELL_SIZE * 0.8, CELL_SIZE * 0.8]}
-    >
+    <mesh ref={meshRef} position={position}>
+      <boxGeometry args={[CELL_SIZE * 0.8, CELL_SIZE * 0.8, CELL_SIZE * 0.8]} />
       <meshPhongMaterial 
         color={type === 'power' ? "#ff00ff" : "#ffff00"} 
         emissive={type === 'power' ? "#440044" : "#444400"}
         shininess={100}
       />
-    </Box>
+    </mesh>
   );
 };
 
