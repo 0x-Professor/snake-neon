@@ -1,0 +1,33 @@
+
+{
+  "name": "Neon Snake - Next-Generation Gaming",
+  "short_name": "Neon Snake",
+  "description": "Experience the classic Snake game with futuristic 3D graphics, multiple game modes, and cyberpunk aesthetics.",
+  "start_url": "/",
+  "display": "fullscreen",
+  "background_color": "#1a1a2e",
+  "theme_color": "#00ffff",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icon-512.png", 
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    }
+  ],
+  "categories": ["games", "entertainment"],
+  "screenshots": [
+    {
+      "src": "/screenshot1.png",
+      "sizes": "1280x720",
+      "type": "image/png"
+    }
+  ]
+}
