@@ -1,3 +1,4 @@
+
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Environment } from '@react-three/drei';
@@ -161,6 +162,8 @@ export const SnakeGame: React.FC = () => {
     return <StartScreen />;
   }
 
+  console.log('Rendering Snake Game with state:', gameState);
+
   return (
     <div className="w-full h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black relative overflow-hidden">
       <SoundManager3D />
@@ -218,12 +221,15 @@ export const SnakeGame: React.FC = () => {
           shake={cameraShake}
         />
         
-        {/* Simplified Post-processing Effects */}
+        {/* Minimal Post-processing Effects */}
         <EffectComposer>
           <Bloom 
-            intensity={0.5}
-            luminanceThreshold={0.2}
-            luminanceSmoothing={0.9}
+            intensity={0.3}
+            width={512}
+            height={512}
+            kernelSize={3}
+            luminanceThreshold={0.9}
+            luminanceSmoothing={0.025}
           />
         </EffectComposer>
         
