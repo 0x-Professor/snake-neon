@@ -109,16 +109,19 @@ const defaultSettings: Settings = {
 
 const generateFood = (snake: Position[]): Food => {
   let position: Position;
+  let attempts = 0;
+  
   do {
     position = {
       x: Math.floor(Math.random() * GRID_SIZE),
       z: Math.floor(Math.random() * GRID_SIZE),
     };
-  } while (snake.some(segment => segment.x === position.x && segment.z === position.z));
+    attempts++;
+  } while (snake.some(segment => segment.x === position.x && segment.z === position.z) && attempts < 100);
   
   return {
     ...position,
-    type: Math.random() < 0.1 ? 'power' : 'normal',
+    type: Math.random() < 0.15 ? 'power' : 'normal',
   };
 };
 
@@ -160,12 +163,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
   
   // Actions
   startGame: (mode: GameMode) => {
+    console.log('Starting game with mode:', mode);
     const initialSnake = [{ x: 10, z: 10 }];
+    const newFood = generateFood(initialSnake);
+    console.log('Initial food generated at:', newFood);
+    
     set({
       gameState: 'playing',
       gameMode: mode,
       snake: initialSnake,
-      food: [generateFood(initialSnake)],
+      food: [newFood],
       powerUps: [],
       activePowerUps: [],
       direction: 'right',
@@ -179,6 +186,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   pauseGame: () => {
     const { gameState } = get();
+    console.log('Pause game called, current state:', gameState);
     if (gameState === 'playing') {
       set({ gameState: 'paused' });
     } else if (gameState === 'paused') {
@@ -187,6 +195,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   resetGame: () => {
+    console.log('Resetting game');
     const initialSnake = [{ x: 10, z: 10 }];
     set({
       gameState: 'menu',
@@ -202,26 +211,40 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   moveSnake: (direction: Direction) => {
-    const { gameState, direction: currentDirection } = get();
-    if (gameState === 'playing') {
-      // Prevent reversing into itself
-      const opposites: Record<Direction, Direction> = {
-        up: 'down',
-        down: 'up',
-        left: 'right',
-        right: 'left'
-      };
-      
-      if (opposites[direction] !== currentDirection) {
-        set({ direction });
-      }
+    const { gameState, direction: currentDirection, snake } = get();
+    console.log('moveSnake called:', direction, 'Current state:', gameState, 'Current direction:', currentDirection);
+    
+    if (gameState !== 'playing') {
+      console.log('Game not playing, ignoring move');
+      return;
     }
+
+    // Prevent reversing into itself (only if snake has more than 1 segment)
+    const opposites: Record<Direction, Direction> = {
+      up: 'down',
+      down: 'up',
+      left: 'right',
+      right: 'left'
+    };
+    
+    if (snake.length > 1 && opposites[direction] === currentDirection) {
+      console.log('Preventing reverse direction');
+      return;
+    }
+    
+    console.log('Setting new direction:', direction);
+    set({ direction });
   },
 
   updateGame: () => {
-    const { gameState, snake, direction, food, score, gameMode, snakeSpeed } = get();
+    const { gameState, snake, direction, food, score, gameMode, snakeSpeed, highScore } = get();
     
-    if (gameState !== 'playing') return;
+    if (gameState !== 'playing') {
+      console.log('Game not playing, skipping update');
+      return;
+    }
+
+    console.log('Updating game - Snake:', snake, 'Direction:', direction);
 
     const head = snake[0];
     let newHead: Position;
@@ -242,15 +265,39 @@ export const useGameStore = create<GameStore>((set, get) => ({
         break;
     }
 
+    console.log('New head position:', newHead);
+
     // Check wall collision
     if (newHead.x < 0 || newHead.x >= GRID_SIZE || newHead.z < 0 || newHead.z >= GRID_SIZE) {
-      set({ gameState: 'gameOver' });
+      console.log('Wall collision detected');
+      
+      // Update high score before game over
+      const newHighScore = Math.max(highScore, score);
+      if (newHighScore > highScore) {
+        localStorage.setItem('neon-snake-highscore', newHighScore.toString());
+      }
+      
+      set({ 
+        gameState: 'gameOver',
+        highScore: newHighScore
+      });
       return;
     }
 
     // Check self collision
     if (snake.some(segment => segment.x === newHead.x && segment.z === newHead.z)) {
-      set({ gameState: 'gameOver' });
+      console.log('Self collision detected');
+      
+      // Update high score before game over
+      const newHighScore = Math.max(highScore, score);
+      if (newHighScore > highScore) {
+        localStorage.setItem('neon-snake-highscore', newHighScore.toString());
+      }
+      
+      set({ 
+        gameState: 'gameOver',
+        highScore: newHighScore
+      });
       return;
     }
 
@@ -261,21 +308,25 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const eatenFoodIndex = food.findIndex(f => f.x === newHead.x && f.z === newHead.z);
     
     if (eatenFoodIndex !== -1) {
+      console.log('Food eaten!');
       // Snake ate food - grow and generate new food
       const eatenFood = food[eatenFoodIndex];
       const newFood = [...food];
       newFood[eatenFoodIndex] = generateFood(newSnake);
       
-      const newScore = score + (eatenFood.type === 'power' ? 20 : 10);
+      const pointsGained = eatenFood.type === 'power' ? 20 : 10;
+      const newScore = score + pointsGained;
       
-      // Increase snake speed slightly when eating
-      const newSpeed = Math.min(snakeSpeed + 0.1, 10);
+      // Increase level every 100 points
+      const newLevel = Math.floor(newScore / 100) + 1;
+      
+      console.log('Score increased to:', newScore, 'Level:', newLevel);
       
       set({
         snake: newSnake,
         food: newFood,
         score: newScore,
-        snakeSpeed: newSpeed,
+        level: newLevel,
       });
     } else {
       // Snake didn't eat - remove tail
