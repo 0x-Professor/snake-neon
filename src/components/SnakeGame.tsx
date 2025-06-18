@@ -81,45 +81,39 @@ const Food: React.FC<FoodProps> = ({ position, type }) => {
 };
 
 const GameGrid: React.FC = () => {
-  const lines = [];
+  const gridLines = [];
   
+  // Create horizontal lines
   for (let i = -GRID_SIZE/2; i <= GRID_SIZE/2; i++) {
-    lines.push(
-      <line key={`h${i}`}>
-        <bufferGeometry>
-          <bufferAttribute
-            attach="attributes-position"
-            count={2}
-            array={new Float32Array([
-              -GRID_SIZE/2, 0, i,
-              GRID_SIZE/2, 0, i,
-            ])}
-            itemSize={3}
-          />
-        </bufferGeometry>
-        <lineBasicMaterial color="#333366" />
-      </line>
-    );
+    const points = [
+      new THREE.Vector3(-GRID_SIZE/2, 0, i),
+      new THREE.Vector3(GRID_SIZE/2, 0, i)
+    ];
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
     
-    lines.push(
-      <line key={`v${i}`}>
-        <bufferGeometry>
-          <bufferAttribute
-            attach="attributes-position"
-            count={2}
-            array={new Float32Array([
-              i, 0, -GRID_SIZE/2,
-              i, 0, GRID_SIZE/2,
-            ])}
-            itemSize={3}
-          />
-        </bufferGeometry>
+    gridLines.push(
+      <line key={`h${i}`} geometry={geometry}>
         <lineBasicMaterial color="#333366" />
       </line>
     );
   }
   
-  return <group>{lines}</group>;
+  // Create vertical lines
+  for (let i = -GRID_SIZE/2; i <= GRID_SIZE/2; i++) {
+    const points = [
+      new THREE.Vector3(i, 0, -GRID_SIZE/2),
+      new THREE.Vector3(i, 0, GRID_SIZE/2)
+    ];
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    
+    gridLines.push(
+      <line key={`v${i}`} geometry={geometry}>
+        <lineBasicMaterial color="#333366" />
+      </line>
+    );
+  }
+  
+  return <group>{gridLines}</group>;
 };
 
 export const SnakeGame: React.FC = () => {
