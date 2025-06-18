@@ -27,9 +27,7 @@ export const AdvancedLighting: React.FC = () => {
       
       {/* Hemisphere light for natural lighting */}
       <hemisphereLight
-        skyColor="#87CEEB"
-        groundColor="#2F4F4F"
-        intensity={0.5}
+        args={["#87CEEB", "#2F4F4F", 0.5]}
       />
       
       {/* Rim lighting */}
