@@ -1,23 +1,38 @@
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+
+export type GameState = 'menu' | 'playing' | 'paused' | 'gameOver';
+export type GameMode = 'classic' | 'survival' | 'multiplayer';
+export type Direction = 'up' | 'down' | 'left' | 'right';
+export type PowerUpType = 'speed' | 'shrink' | 'magnet';
 
 export interface Position {
   x: number;
   z: number;
 }
 
-export interface FoodItem extends Position {
+export interface Food extends Position {
   type: 'normal' | 'power';
-  points: number;
 }
 
 export interface PowerUp extends Position {
-  type: 'speed' | 'shrink' | 'magnet';
-  duration: number;
+  type: PowerUpType;
 }
 
-export interface GameSettings {
+export interface ActivePowerUp {
+  type: PowerUpType;
+  timeLeft: number;
+}
+
+export interface LeaderboardEntry {
+  id: string;
+  score: number;
+  playerName: string;
+  gameMode: GameMode;
+  date: number;
+}
+
+export interface Settings {
   volume: number;
   gameSpeed: number;
   theme: 'dark' | 'light';
@@ -33,50 +48,42 @@ export interface GameSettings {
   };
 }
 
-export interface LeaderboardEntry {
-  id: string;
-  score: number;
-  gameMode: string;
-  date: number;
-  playerName: string;
-}
-
-export interface GameState {
-  gameState: 'menu' | 'playing' | 'paused' | 'gameOver';
-  gameMode: 'classic' | 'survival' | 'multiplayer';
+interface GameStore {
+  // Game state
+  gameState: GameState;
+  gameMode: GameMode;
   snake: Position[];
-  direction: 'up' | 'down' | 'left' | 'right';
-  food: FoodItem[];
+  food: Food[];
   powerUps: PowerUp[];
-  activePowerUps: PowerUp[];
+  activePowerUps: ActivePowerUp[];
+  direction: Direction;
   score: number;
-  highScore: number;
   level: number;
   lives: number;
-  settings: GameSettings;
-  leaderboard: LeaderboardEntry[];
+  highScore: number;
+  
+  // UI state
   showSettings: boolean;
   showLeaderboard: boolean;
   
+  // Persistent data
+  leaderboard: LeaderboardEntry[];
+  settings: Settings;
+  
   // Actions
-  startGame: (mode?: 'classic' | 'survival' | 'multiplayer') => void;
+  startGame: (mode: GameMode) => void;
   pauseGame: () => void;
-  resumeGame: () => void;
-  endGame: () => void;
-  moveSnake: (newDirection: 'up' | 'down' | 'left' | 'right') => void;
-  updateGame: () => void;
-  collectFood: (foodIndex: number) => void;
-  collectPowerUp: (powerUpIndex: number) => void;
-  updateSettings: (newSettings: Partial<GameSettings>) => void;
-  addToLeaderboard: (entry: Omit<LeaderboardEntry, 'id'>) => void;
+  resetGame: () => void;
+  moveSnake: (direction: Direction) => void;
+  updateSettings: (newSettings: Partial<Settings>) => void;
   toggleSettings: () => void;
   toggleLeaderboard: () => void;
-  resetGame: () => void;
+  addToLeaderboard: (entry: Omit<LeaderboardEntry, 'id'>) => void;
 }
 
 const GRID_SIZE = 20;
 
-const defaultSettings: GameSettings = {
+const defaultSettings: Settings = {
   volume: 0.7,
   gameSpeed: 5,
   theme: 'dark',
@@ -92,273 +99,125 @@ const defaultSettings: GameSettings = {
   },
 };
 
-const generateRandomPosition = (): Position => ({
+const generateFood = (): Food => ({
   x: Math.floor(Math.random() * GRID_SIZE),
   z: Math.floor(Math.random() * GRID_SIZE),
+  type: Math.random() < 0.1 ? 'power' : 'normal',
 });
 
-const generateFood = (): FoodItem => {
-  const isPowerFood = Math.random() < 0.2; // 20% chance for power food
-  return {
-    ...generateRandomPosition(),
-    type: isPowerFood ? 'power' : 'normal',
-    points: isPowerFood ? 50 : 10,
-  };
-};
+const generatePowerUp = (): PowerUp => ({
+  x: Math.floor(Math.random() * GRID_SIZE),
+  z: Math.floor(Math.random() * GRID_SIZE),
+  type: ['speed', 'shrink', 'magnet'][Math.floor(Math.random() * 3)] as PowerUpType,
+});
 
-const generatePowerUp = (): PowerUp => {
-  const types: PowerUp['type'][] = ['speed', 'shrink', 'magnet'];
-  const type = types[Math.floor(Math.random() * types.length)];
+export const useGameStore = create<GameStore>((set, get) => ({
+  // Initial state
+  gameState: 'menu',
+  gameMode: 'classic',
+  snake: [{ x: 10, z: 10 }],
+  food: [generateFood()],
+  powerUps: [],
+  activePowerUps: [],
+  direction: 'right',
+  score: 0,
+  level: 1,
+  lives: 3,
+  highScore: parseInt(localStorage.getItem('neon-snake-highscore') || '0'),
   
-  return {
-    ...generateRandomPosition(),
-    type,
-    duration: 5000, // 5 seconds
-  };
-};
-
-export const useGameStore = create<GameState>()(
-  persist(
-    (set, get) => ({
-      gameState: 'menu',
-      gameMode: 'classic',
+  // UI state
+  showSettings: false,
+  showLeaderboard: false,
+  
+  // Persistent data
+  leaderboard: JSON.parse(localStorage.getItem('neon-snake-leaderboard') || '[]'),
+  settings: {
+    ...defaultSettings,
+    ...JSON.parse(localStorage.getItem('neon-snake-settings') || '{}'),
+  },
+  
+  // Actions
+  startGame: (mode: GameMode) => {
+    set({
+      gameState: 'playing',
+      gameMode: mode,
       snake: [{ x: 10, z: 10 }],
-      direction: 'right',
       food: [generateFood()],
       powerUps: [],
       activePowerUps: [],
+      direction: 'right',
       score: 0,
-      highScore: 0,
       level: 1,
-      lives: 3,
-      settings: defaultSettings,
-      leaderboard: [],
+      lives: mode === 'survival' ? 3 : 1,
       showSettings: false,
       showLeaderboard: false,
+    });
+  },
 
-      startGame: (mode = 'classic') => {
-        set({
-          gameState: 'playing',
-          gameMode: mode,
-          snake: [{ x: 10, z: 10 }],
-          direction: 'right',
-          score: 0,
-          level: 1,
-          lives: mode === 'survival' ? 3 : 1,
-          food: [generateFood()],
-          powerUps: [],
-          activePowerUps: [],
-          showSettings: false,
-          showLeaderboard: false,
-        });
-      },
-
-      pauseGame: () => {
-        const state = get();
-        if (state.gameState === 'playing') {
-          set({ gameState: 'paused' });
-        } else if (state.gameState === 'paused') {
-          set({ gameState: 'playing' });
-        }
-      },
-
-      resumeGame: () => {
-        set({ gameState: 'playing' });
-      },
-
-      endGame: () => {
-        const state = get();
-        if (state.score > state.highScore) {
-          set({ highScore: state.score });
-        }
-        
-        // Add to leaderboard
-        const entry: Omit<LeaderboardEntry, 'id'> = {
-          score: state.score,
-          gameMode: state.gameMode,
-          date: Date.now(),
-          playerName: 'Player',
-        };
-        
-        get().addToLeaderboard(entry);
-        set({ gameState: 'gameOver' });
-      },
-
-      moveSnake: (newDirection) => {
-        const state = get();
-        if (state.gameState !== 'playing') return;
-
-        // Prevent reverse direction
-        const opposites = {
-          up: 'down',
-          down: 'up',
-          left: 'right',
-          right: 'left',
-        };
-
-        if (opposites[newDirection] === state.direction) return;
-
-        set({ direction: newDirection });
-        get().updateGame();
-      },
-
-      updateGame: () => {
-        const state = get();
-        if (state.gameState !== 'playing') return;
-
-        const head = state.snake[0];
-        let newHead: Position;
-
-        switch (state.direction) {
-          case 'up':
-            newHead = { x: head.x, z: head.z - 1 };
-            break;
-          case 'down':
-            newHead = { x: head.x, z: head.z + 1 };
-            break;
-          case 'left':
-            newHead = { x: head.x - 1, z: head.z };
-            break;
-          case 'right':
-            newHead = { x: head.x + 1, z: head.z };
-            break;
-          default:
-            return;
-        }
-
-        // Check wall collision
-        if (newHead.x < 0 || newHead.x >= GRID_SIZE || newHead.z < 0 || newHead.z >= GRID_SIZE) {
-          get().endGame();
-          return;
-        }
-
-        // Check self collision
-        if (state.snake.some(segment => segment.x === newHead.x && segment.z === newHead.z)) {
-          get().endGame();
-          return;
-        }
-
-        const newSnake = [newHead, ...state.snake];
-
-        // Check food collision
-        const foodIndex = state.food.findIndex(
-          f => f.x === newHead.x && f.z === newHead.z
-        );
-
-        if (foodIndex !== -1) {
-          get().collectFood(foodIndex);
-        } else {
-          newSnake.pop(); // Remove tail if no food eaten
-        }
-
-        // Check power-up collision
-        const powerUpIndex = state.powerUps.findIndex(
-          p => p.x === newHead.x && p.z === newHead.z
-        );
-
-        if (powerUpIndex !== -1) {
-          get().collectPowerUp(powerUpIndex);
-        }
-
-        set({ snake: newSnake });
-
-        // Randomly spawn power-ups
-        if (Math.random() < 0.02 && state.powerUps.length < 2) { // 2% chance
-          set({ powerUps: [...state.powerUps, generatePowerUp()] });
-        }
-      },
-
-      collectFood: (foodIndex) => {
-        const state = get();
-        const food = state.food[foodIndex];
-        const newFood = state.food.filter((_, index) => index !== foodIndex);
-        
-        // Add new food
-        newFood.push(generateFood());
-
-        const newScore = state.score + food.points;
-        const newLevel = Math.floor(newScore / 100) + 1;
-
-        set({
-          food: newFood,
-          score: newScore,
-          level: newLevel,
-        });
-      },
-
-      collectPowerUp: (powerUpIndex) => {
-        const state = get();
-        const powerUp = state.powerUps[powerUpIndex];
-        const newPowerUps = state.powerUps.filter((_, index) => index !== powerUpIndex);
-
-        set({
-          powerUps: newPowerUps,
-          activePowerUps: [...state.activePowerUps, powerUp],
-        });
-
-        // Remove power-up after duration
-        setTimeout(() => {
-          const currentState = get();
-          set({
-            activePowerUps: currentState.activePowerUps.filter(p => p !== powerUp),
-          });
-        }, powerUp.duration);
-      },
-
-      updateSettings: (newSettings) => {
-        const state = get();
-        set({
-          settings: { ...state.settings, ...newSettings },
-        });
-      },
-
-      addToLeaderboard: (entry) => {
-        const state = get();
-        const newEntry: LeaderboardEntry = {
-          ...entry,
-          id: Date.now().toString(),
-        };
-
-        const newLeaderboard = [...state.leaderboard, newEntry]
-          .sort((a, b) => b.score - a.score)
-          .slice(0, 10); // Keep top 10
-
-        set({ leaderboard: newLeaderboard });
-      },
-
-      toggleSettings: () => {
-        const state = get();
-        set({ showSettings: !state.showSettings });
-      },
-
-      toggleLeaderboard: () => {
-        const state = get();
-        set({ showLeaderboard: !state.showLeaderboard });
-      },
-
-      resetGame: () => {
-        set({
-          gameState: 'menu',
-          snake: [{ x: 10, z: 10 }],
-          direction: 'right',
-          score: 0,
-          level: 1,
-          lives: 3,
-          food: [generateFood()],
-          powerUps: [],
-          activePowerUps: [],
-          showSettings: false,
-          showLeaderboard: false,
-        });
-      },
-    }),
-    {
-      name: 'snake-game-storage',
-      partialize: (state) => ({
-        highScore: state.highScore,
-        settings: state.settings,
-        leaderboard: state.leaderboard,
-      }),
+  pauseGame: () => {
+    const { gameState } = get();
+    if (gameState === 'playing') {
+      set({ gameState: 'paused' });
+    } else if (gameState === 'paused') {
+      set({ gameState: 'playing' });
     }
-  )
-);
+  },
+
+  resetGame: () => {
+    set({
+      gameState: 'menu',
+      snake: [{ x: 10, z: 10 }],
+      food: [generateFood()],
+      powerUps: [],
+      activePowerUps: [],
+      direction: 'right',
+      score: 0,
+      level: 1,
+      lives: 3,
+    });
+  },
+
+  moveSnake: (direction: Direction) => {
+    const { gameState } = get();
+    if (gameState === 'playing') {
+      set({ direction });
+    }
+  },
+
+  updateSettings: (newSettings: Partial<Settings>) => {
+    const { settings } = get();
+    const updatedSettings = { ...settings, ...newSettings };
+    localStorage.setItem('neon-snake-settings', JSON.stringify(updatedSettings));
+    set({ settings: updatedSettings });
+  },
+
+  toggleSettings: () => {
+    set((state) => ({ showSettings: !state.showSettings }));
+  },
+
+  toggleLeaderboard: () => {
+    set((state) => ({ showLeaderboard: !state.showLeaderboard }));
+  },
+
+  addToLeaderboard: (entry: Omit<LeaderboardEntry, 'id'>) => {
+    const { leaderboard, highScore } = get();
+    const newEntry: LeaderboardEntry = {
+      ...entry,
+      id: Date.now().toString(),
+    };
+    
+    const updatedLeaderboard = [...leaderboard, newEntry]
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10); // Keep top 10
+    
+    const newHighScore = Math.max(highScore, entry.score);
+    
+    localStorage.setItem('neon-snake-leaderboard', JSON.stringify(updatedLeaderboard));
+    localStorage.setItem('neon-snake-highscore', newHighScore.toString());
+    
+    set({ 
+      leaderboard: updatedLeaderboard,
+      highScore: newHighScore,
+    });
+  },
+}));
