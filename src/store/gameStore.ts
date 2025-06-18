@@ -56,6 +56,7 @@ interface GameStore {
   powerUps: PowerUp[];
   activePowerUps: ActivePowerUp[];
   direction: Direction;
+  nextDirection: Direction | null;
   score: number;
   level: number;
   lives: number;
@@ -140,25 +141,26 @@ export const useGameStore = create<GameStore>((set, get) => ({
   powerUps: [],
   activePowerUps: [],
   direction: 'right',
+  nextDirection: null,
   score: 0,
   level: 1,
   lives: 3,
-  highScore: parseInt(localStorage.getItem('neon-snake-highscore') || '0'),
+  highScore: parseInt(localStorage.getItem('cyber-snake-highscore') || '0'),
   
   // UI state
   showSettings: false,
   showLeaderboard: false,
   
   // Persistent data
-  leaderboard: JSON.parse(localStorage.getItem('neon-snake-leaderboard') || '[]'),
+  leaderboard: JSON.parse(localStorage.getItem('cyber-snake-leaderboard') || '[]'),
   settings: {
     ...defaultSettings,
-    ...JSON.parse(localStorage.getItem('neon-snake-settings') || '{}'),
+    ...JSON.parse(localStorage.getItem('cyber-snake-settings') || '{}'),
   },
   
   // Enhanced initial state
   snakeSpeed: 5,
-  cameraMode: 'cinematic',
+  cameraMode: 'overview',
   effectsEnabled: true,
   
   // Actions
@@ -176,6 +178,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       powerUps: [],
       activePowerUps: [],
       direction: 'right',
+      nextDirection: null,
       score: 0,
       level: 1,
       lives: mode === 'survival' ? 3 : 1,
@@ -204,15 +207,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
       powerUps: [],
       activePowerUps: [],
       direction: 'right',
+      nextDirection: null,
       score: 0,
       level: 1,
       lives: 3,
     });
   },
 
-  moveSnake: (direction: Direction) => {
-    const { gameState, direction: currentDirection, snake } = get();
-    console.log('moveSnake called:', direction, 'Current state:', gameState, 'Current direction:', currentDirection);
+  moveSnake: (newDirection: Direction) => {
+    const { gameState, direction, snake } = get();
+    console.log('moveSnake called:', newDirection, 'Current state:', gameState, 'Current direction:', direction);
     
     if (gameState !== 'playing') {
       console.log('Game not playing, ignoring move');
@@ -227,17 +231,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
       right: 'left'
     };
     
-    if (snake.length > 1 && opposites[direction] === currentDirection) {
-      console.log('Preventing reverse direction');
+    if (snake.length > 1 && opposites[newDirection] === direction) {
+      console.log('Preventing reverse direction from', direction, 'to', newDirection);
       return;
     }
     
-    console.log('Setting new direction:', direction);
-    set({ direction });
+    console.log('Setting new direction:', newDirection);
+    set({ direction: newDirection });
   },
 
   updateGame: () => {
-    const { gameState, snake, direction, food, score, gameMode, snakeSpeed, highScore } = get();
+    const { gameState, snake, direction, food, score, gameMode, highScore } = get();
     
     if (gameState !== 'playing') {
       console.log('Game not playing, skipping update');
@@ -247,6 +251,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
     console.log('Updating game - Snake:', snake, 'Direction:', direction);
 
     const head = snake[0];
+    if (!head) {
+      console.log('No snake head found');
+      return;
+    }
+
     let newHead: Position;
 
     // Calculate new head position based on direction
@@ -263,18 +272,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
       case 'right':
         newHead = { x: head.x + 1, z: head.z };
         break;
+      default:
+        console.log('Invalid direction:', direction);
+        return;
     }
 
     console.log('New head position:', newHead);
 
     // Check wall collision
     if (newHead.x < 0 || newHead.x >= GRID_SIZE || newHead.z < 0 || newHead.z >= GRID_SIZE) {
-      console.log('Wall collision detected');
+      console.log('Wall collision detected at', newHead);
       
-      // Update high score before game over
       const newHighScore = Math.max(highScore, score);
       if (newHighScore > highScore) {
-        localStorage.setItem('neon-snake-highscore', newHighScore.toString());
+        localStorage.setItem('cyber-snake-highscore', newHighScore.toString());
       }
       
       set({ 
@@ -286,12 +297,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     // Check self collision
     if (snake.some(segment => segment.x === newHead.x && segment.z === newHead.z)) {
-      console.log('Self collision detected');
+      console.log('Self collision detected at', newHead);
       
-      // Update high score before game over
       const newHighScore = Math.max(highScore, score);
       if (newHighScore > highScore) {
-        localStorage.setItem('neon-snake-highscore', newHighScore.toString());
+        localStorage.setItem('cyber-snake-highscore', newHighScore.toString());
       }
       
       set({ 
@@ -308,7 +318,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const eatenFoodIndex = food.findIndex(f => f.x === newHead.x && f.z === newHead.z);
     
     if (eatenFoodIndex !== -1) {
-      console.log('Food eaten!');
+      console.log('Food eaten at', newHead);
       // Snake ate food - grow and generate new food
       const eatenFood = food[eatenFoodIndex];
       const newFood = [...food];
@@ -338,7 +348,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   updateSettings: (newSettings: Partial<Settings>) => {
     const { settings } = get();
     const updatedSettings = { ...settings, ...newSettings };
-    localStorage.setItem('neon-snake-settings', JSON.stringify(updatedSettings));
+    localStorage.setItem('cyber-snake-settings', JSON.stringify(updatedSettings));
     set({ settings: updatedSettings });
   },
 
@@ -363,8 +373,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     
     const newHighScore = Math.max(highScore, entry.score);
     
-    localStorage.setItem('neon-snake-leaderboard', JSON.stringify(updatedLeaderboard));
-    localStorage.setItem('neon-snake-highscore', newHighScore.toString());
+    localStorage.setItem('cyber-snake-leaderboard', JSON.stringify(updatedLeaderboard));
+    localStorage.setItem('cyber-snake-highscore', newHighScore.toString());
     
     set({ 
       leaderboard: updatedLeaderboard,

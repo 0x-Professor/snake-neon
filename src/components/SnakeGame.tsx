@@ -23,7 +23,6 @@ export const SnakeGame: React.FC = () => {
     food,
     score,
     direction,
-    gameMode,
     startGame,
     pauseGame,
     moveSnake,
@@ -35,7 +34,7 @@ export const SnakeGame: React.FC = () => {
 
   const gameLoopRef = useRef<number>();
   const lastUpdateRef = useRef<number>(0);
-  const canvasRef = useRef<HTMLCanvasElement>();
+  const lastDirectionRef = useRef(direction);
   const [isInitialized, setIsInitialized] = useState(false);
   const [particleEffects, setParticleEffects] = useState<Array<{
     id: string;
@@ -45,7 +44,6 @@ export const SnakeGame: React.FC = () => {
   }>>([]);
   const [cameraShake, setCameraShake] = useState(false);
 
-  // Initialize game on component mount
   useEffect(() => {
     console.log('SnakeGame component initialized');
     setIsInitialized(true);
@@ -56,38 +54,41 @@ export const SnakeGame: React.FC = () => {
     
     if (gameState !== 'playing') return;
 
-    // Use both arrow keys and WASD for better compatibility
-    switch (event.key.toLowerCase()) {
+    const key = event.key.toLowerCase();
+    let newDirection = direction;
+
+    // Handle direction changes with proper opposite direction prevention
+    switch (key) {
       case 'arrowup':
       case 'w':
-        event.preventDefault();
-        console.log('Moving snake up');
-        moveSnake('up');
+        if (direction !== 'down') newDirection = 'up';
         break;
       case 'arrowdown':
       case 's':
-        event.preventDefault();
-        console.log('Moving snake down');
-        moveSnake('down');
+        if (direction !== 'up') newDirection = 'down';
         break;
       case 'arrowleft':
       case 'a':
-        event.preventDefault();
-        console.log('Moving snake left');
-        moveSnake('left');
+        if (direction !== 'right') newDirection = 'left';
         break;
       case 'arrowright':
       case 'd':
-        event.preventDefault();
-        console.log('Moving snake right');
-        moveSnake('right');
+        if (direction !== 'left') newDirection = 'right';
         break;
       case ' ':
         event.preventDefault();
         pauseGame();
-        break;
+        return;
     }
-  }, [gameState, moveSnake, pauseGame]);
+
+    if (newDirection !== direction) {
+      console.log('Direction changed from', direction, 'to', newDirection);
+      moveSnake(newDirection);
+      lastDirectionRef.current = newDirection;
+    }
+
+    event.preventDefault();
+  }, [gameState, direction, moveSnake, pauseGame]);
 
   useEffect(() => {
     console.log('Setting up keyboard listeners');
@@ -100,7 +101,7 @@ export const SnakeGame: React.FC = () => {
 
   const gameLoop = useCallback((timestamp: number) => {
     if (gameState === 'playing') {
-      const gameSpeed = Math.max(100, 600 - settings.gameSpeed * 50);
+      const gameSpeed = Math.max(100, 400 - settings.gameSpeed * 30);
       if (timestamp - lastUpdateRef.current > gameSpeed) {
         console.log('Game loop tick - updating game state');
         updateGame();
@@ -114,6 +115,7 @@ export const SnakeGame: React.FC = () => {
     console.log('Game state changed to:', gameState);
     if (gameState === 'playing') {
       console.log('Starting game loop');
+      lastUpdateRef.current = performance.now();
       gameLoopRef.current = requestAnimationFrame(gameLoop);
     } else {
       if (gameLoopRef.current) {
@@ -173,17 +175,6 @@ export const SnakeGame: React.FC = () => {
     }
   }, [gameState, handleCollision]);
 
-  // Handle canvas initialization
-  const handleCanvasCreated = useCallback((canvas: HTMLCanvasElement) => {
-    console.log('Canvas created and initialized');
-    canvasRef.current = canvas;
-    
-    // Ensure canvas is properly mounted
-    if (canvas && canvas.parentElement) {
-      console.log('Canvas successfully appended to DOM');
-    }
-  }, []);
-
   if (showSettings) {
     return <SettingsPanel />;
   }
@@ -210,21 +201,35 @@ export const SnakeGame: React.FC = () => {
 
   return (
     <div className="w-full h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black relative overflow-hidden">
+      {/* Animated background particles */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(120,119,198,0.1),rgba(255,255,255,0))]"></div>
+        {Array.from({ length: 50 }).map((_, i) => (
+          <div
+            key={i}
+            className="absolute w-1 h-1 bg-cyan-400 rounded-full animate-pulse"
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              animationDelay: `${Math.random() * 3}s`,
+              animationDuration: `${2 + Math.random() * 2}s`
+            }}
+          />
+        ))}
+      </div>
+
       <SoundManager3D />
       
-      {/* Enhanced 3D Canvas with proper initialization */}
+      {/* Enhanced 3D Canvas with static camera */}
       <Canvas
         shadows
-        camera={{ position: [0, 12, 12], fov: 60 }}
+        camera={{ position: [0, 20, 15], fov: 45, near: 0.1, far: 1000 }}
         className="absolute inset-0"
         gl={{ 
           antialias: true, 
           alpha: false,
-          powerPreference: "high-performance"
-        }}
-        onCreated={({ gl }) => {
-          console.log('React Three Fiber canvas created');
-          handleCanvasCreated(gl.domElement);
+          powerPreference: "high-performance",
+          shadowMap: { enabled: true, type: 2 }
         }}
       >
         {/* Advanced Lighting Setup */}
@@ -233,17 +238,17 @@ export const SnakeGame: React.FC = () => {
         {/* HDRI Environment */}
         <Environment preset="night" />
         
-        {/* Realistic Environment */}
+        {/* Static Professional Environment */}
         <RealisticEnvironment />
         
-        {/* Enhanced Snake with better positioning */}
+        {/* Enhanced Snake with smooth movement */}
         <RealisticSnake 
           segments={snake} 
           isAlive={gameState === 'playing'}
           direction={direction}
         />
         
-        {/* Enhanced Food with randomized textures */}
+        {/* Enhanced Food with PBR materials */}
         {food.map((item, index) => (
           <RealisticFood
             key={`food-${index}-${item.x}-${item.z}`}
@@ -262,60 +267,56 @@ export const SnakeGame: React.FC = () => {
           />
         ))}
         
-        {/* Cinematic Camera Controller */}
-        <CinematicCamera
-          snakeHead={snake[0] || { x: 10, z: 10 }}
-          direction={direction}
-          gameState={gameState}
-          shake={cameraShake}
+        {/* Static camera looking down at the game board */}
+        <OrbitControls 
+          enablePan={false} 
+          enableZoom={false}
+          enableRotate={false}
+          target={[0, 0, 0]}
         />
-        
-        {/* Optional Orbit Controls (disabled during gameplay) */}
-        {gameState !== 'playing' && (
-          <OrbitControls 
-            enablePan={false} 
-            enableZoom={true}
-            maxDistance={20}
-            minDistance={5}
-          />
-        )}
       </Canvas>
 
-      {/* Game HUD */}
-      <GameHUD />
+      {/* Game HUD with animations */}
+      <div className="absolute inset-0 pointer-events-none">
+        <GameHUD />
+      </div>
 
-      {/* Enhanced Touch Controls with better responsiveness */}
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 md:hidden">
+      {/* Futuristic UI borders */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-0 left-0 w-32 h-32 border-t-2 border-l-2 border-cyan-400 opacity-50"></div>
+        <div className="absolute top-0 right-0 w-32 h-32 border-t-2 border-r-2 border-cyan-400 opacity-50"></div>
+        <div className="absolute bottom-0 left-0 w-32 h-32 border-b-2 border-l-2 border-cyan-400 opacity-50"></div>
+        <div className="absolute bottom-0 right-0 w-32 h-32 border-b-2 border-r-2 border-cyan-400 opacity-50"></div>
+      </div>
+
+      {/* Enhanced Touch Controls */}
+      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 md:hidden pointer-events-auto">
         <div className="grid grid-cols-3 gap-2">
           <div></div>
           <button
             onTouchStart={(e) => {
               e.preventDefault();
-              console.log('Touch control: up');
-              moveSnake('up');
+              if (direction !== 'down') moveSnake('up');
             }}
             onClick={() => {
-              console.log('Click control: up');
-              moveSnake('up');
+              if (direction !== 'down') moveSnake('up');
             }}
-            className="w-14 h-14 bg-cyan-500/30 border-2 border-cyan-400/50 rounded-xl flex items-center justify-center backdrop-blur-md shadow-lg shadow-cyan-400/25 active:scale-95 transition-transform"
+            className="w-16 h-16 bg-gradient-to-t from-cyan-600 to-cyan-400 border-2 border-cyan-300 rounded-xl flex items-center justify-center backdrop-blur-md shadow-lg shadow-cyan-400/25 active:scale-95 transition-all duration-200 hover:shadow-cyan-400/50"
           >
-            <span className="text-cyan-400 text-2xl font-bold">↑</span>
+            <span className="text-white text-2xl font-bold">↑</span>
           </button>
           <div></div>
           <button
             onTouchStart={(e) => {
               e.preventDefault();
-              console.log('Touch control: left');
-              moveSnake('left');
+              if (direction !== 'right') moveSnake('left');
             }}
             onClick={() => {
-              console.log('Click control: left');
-              moveSnake('left');
+              if (direction !== 'right') moveSnake('left');
             }}
-            className="w-14 h-14 bg-cyan-500/30 border-2 border-cyan-400/50 rounded-xl flex items-center justify-center backdrop-blur-md shadow-lg shadow-cyan-400/25 active:scale-95 transition-transform"
+            className="w-16 h-16 bg-gradient-to-r from-cyan-600 to-cyan-400 border-2 border-cyan-300 rounded-xl flex items-center justify-center backdrop-blur-md shadow-lg shadow-cyan-400/25 active:scale-95 transition-all duration-200 hover:shadow-cyan-400/50"
           >
-            <span className="text-cyan-400 text-2xl font-bold">←</span>
+            <span className="text-white text-2xl font-bold">←</span>
           </button>
           <button
             onTouchStart={(e) => {
@@ -323,50 +324,77 @@ export const SnakeGame: React.FC = () => {
               pauseGame();
             }}
             onClick={pauseGame}
-            className="w-14 h-14 bg-purple-500/30 border-2 border-purple-400/50 rounded-xl flex items-center justify-center backdrop-blur-md shadow-lg shadow-cyan-400/25 active:scale-95 transition-transform"
+            className="w-16 h-16 bg-gradient-to-t from-purple-600 to-purple-400 border-2 border-purple-300 rounded-xl flex items-center justify-center backdrop-blur-md shadow-lg shadow-purple-400/25 active:scale-95 transition-all duration-200 hover:shadow-purple-400/50"
           >
-            <span className="text-purple-400 text-sm font-bold">⏸</span>
+            <span className="text-white text-sm font-bold">⏸</span>
           </button>
           <button
             onTouchStart={(e) => {
               e.preventDefault();
-              console.log('Touch control: right');
-              moveSnake('right');
+              if (direction !== 'left') moveSnake('right');
             }}
             onClick={() => {
-              console.log('Click control: right');
-              moveSnake('right');
+              if (direction !== 'left') moveSnake('right');
             }}
-            className="w-14 h-14 bg-cyan-500/30 border-2 border-cyan-400/50 rounded-xl flex items-center justify-center backdrop-blur-md shadow-lg shadow-cyan-400/25 active:scale-95 transition-transform"
+            className="w-16 h-16 bg-gradient-to-l from-cyan-600 to-cyan-400 border-2 border-cyan-300 rounded-xl flex items-center justify-center backdrop-blur-md shadow-lg shadow-cyan-400/25 active:scale-95 transition-all duration-200 hover:shadow-cyan-400/50"
           >
-            <span className="text-cyan-400 text-2xl font-bold">→</span>
+            <span className="text-white text-2xl font-bold">→</span>
           </button>
           <div></div>
           <button
             onTouchStart={(e) => {
               e.preventDefault();
-              console.log('Touch control: down');
-              moveSnake('down');
+              if (direction !== 'up') moveSnake('down');
             }}
             onClick={() => {
-              console.log('Click control: down');
-              moveSnake('down');
+              if (direction !== 'up') moveSnake('down');
             }}
-            className="w-14 h-14 bg-cyan-500/30 border-2 border-cyan-400/50 rounded-xl flex items-center justify-center backdrop-blur-md shadow-lg shadow-cyan-400/25 active:scale-95 transition-transform"
+            className="w-16 h-16 bg-gradient-to-b from-cyan-600 to-cyan-400 border-2 border-cyan-300 rounded-xl flex items-center justify-center backdrop-blur-md shadow-lg shadow-cyan-400/25 active:scale-95 transition-all duration-200 hover:shadow-cyan-400/50"
           >
-            <span className="text-cyan-400 text-2xl font-bold">↓</span>
+            <span className="text-white text-2xl font-bold">↓</span>
           </button>
           <div></div>
         </div>
       </div>
 
-      {/* Debug info in development */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="absolute top-4 right-4 bg-black/50 text-white p-2 rounded text-xs">
-          <div>Game State: {gameState}</div>
-          <div>Snake Length: {snake.length}</div>
-          <div>Direction: {direction}</div>
-          <div>Score: {score}</div>
+      {/* Scan lines effect */}
+      <div className="absolute inset-0 pointer-events-none opacity-10">
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-cyan-400 to-transparent animate-pulse" style={{
+          backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 255, 255, 0.1) 2px, rgba(0, 255, 255, 0.1) 4px)'
+        }}></div>
+      </div>
+
+      {/* Game status indicator */}
+      {gameState === 'playing' && (
+        <div className="absolute top-4 left-4 pointer-events-none">
+          <div className="flex items-center space-x-2">
+            <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+            <span className="text-green-400 font-mono text-sm">SYSTEM ACTIVE</span>
+          </div>
+        </div>
+      )}
+
+      {gameState === 'paused' && (
+        <div className="absolute inset-0 bg-black/50 flex items-center justify-center pointer-events-none">
+          <div className="text-center">
+            <div className="text-6xl font-bold text-cyan-400 mb-4 animate-pulse">PAUSED</div>
+            <div className="text-cyan-300 font-mono">Press SPACE to continue</div>
+          </div>
+        </div>
+      )}
+
+      {gameState === 'gameOver' && (
+        <div className="absolute inset-0 bg-black/70 flex items-center justify-center pointer-events-auto">
+          <div className="text-center p-8 bg-gray-900/80 rounded-xl border border-red-500">
+            <div className="text-6xl font-bold text-red-400 mb-4 animate-pulse">GAME OVER</div>
+            <div className="text-red-300 font-mono mb-6">Final Score: {score}</div>
+            <button
+              onClick={() => startGame('classic')}
+              className="px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg hover:from-cyan-500 hover:to-blue-500 transition-all duration-200 font-bold"
+            >
+              RESTART MISSION
+            </button>
+          </div>
         </div>
       )}
     </div>
