@@ -1,8 +1,6 @@
-
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Environment } from '@react-three/drei';
-import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import { useGameStore } from '../store/gameStore';
 import { GameHUD } from './GameHUD';
 import { StartScreen } from './StartScreen';
@@ -220,18 +218,6 @@ export const SnakeGame: React.FC = () => {
           gameState={gameState}
           shake={cameraShake}
         />
-        
-        {/* Minimal Post-processing Effects */}
-        <EffectComposer>
-          <Bloom 
-            intensity={0.3}
-            width={512}
-            height={512}
-            kernelSize={3}
-            luminanceThreshold={0.9}
-            luminanceSmoothing={0.025}
-          />
-        </EffectComposer>
         
         {/* Optional Orbit Controls (disabled during gameplay) */}
         {gameState !== 'playing' && (
