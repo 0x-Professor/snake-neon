@@ -1,4 +1,3 @@
-
 import { create } from 'zustand';
 
 export type GameState = 'menu' | 'playing' | 'paused' | 'gameOver';
@@ -70,6 +69,11 @@ interface GameStore {
   leaderboard: LeaderboardEntry[];
   settings: Settings;
   
+  // Enhanced properties
+  snakeSpeed: number;
+  cameraMode: 'follow' | 'overview' | 'cinematic';
+  effectsEnabled: boolean;
+  
   // Actions
   startGame: (mode: GameMode) => void;
   pauseGame: () => void;
@@ -80,6 +84,9 @@ interface GameStore {
   toggleSettings: () => void;
   toggleLeaderboard: () => void;
   addToLeaderboard: (entry: Omit<LeaderboardEntry, 'id'>) => void;
+  setSnakeSpeed: (speed: number) => void;
+  setCameraMode: (mode: 'follow' | 'overview' | 'cinematic') => void;
+  toggleEffects: () => void;
 }
 
 const GRID_SIZE = 20;
@@ -146,6 +153,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
     ...JSON.parse(localStorage.getItem('neon-snake-settings') || '{}'),
   },
   
+  // Enhanced initial state
+  snakeSpeed: 5,
+  cameraMode: 'cinematic',
+  effectsEnabled: true,
+  
   // Actions
   startGame: (mode: GameMode) => {
     const initialSnake = [{ x: 10, z: 10 }];
@@ -207,7 +219,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   updateGame: () => {
-    const { gameState, snake, direction, food, score, gameMode } = get();
+    const { gameState, snake, direction, food, score, gameMode, snakeSpeed } = get();
     
     if (gameState !== 'playing') return;
 
@@ -256,10 +268,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
       
       const newScore = score + (eatenFood.type === 'power' ? 20 : 10);
       
+      // Increase snake speed slightly when eating
+      const newSpeed = Math.min(snakeSpeed + 0.1, 10);
+      
       set({
         snake: newSnake,
         food: newFood,
         score: newScore,
+        snakeSpeed: newSpeed,
       });
     } else {
       // Snake didn't eat - remove tail
@@ -303,5 +319,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
       leaderboard: updatedLeaderboard,
       highScore: newHighScore,
     });
+  },
+
+  setSnakeSpeed: (speed: number) => {
+    set({ snakeSpeed: speed });
+  },
+
+  setCameraMode: (mode: 'follow' | 'overview' | 'cinematic') => {
+    set({ cameraMode: mode });
+  },
+
+  toggleEffects: () => {
+    set((state) => ({ effectsEnabled: !state.effectsEnabled }));
   },
 }));

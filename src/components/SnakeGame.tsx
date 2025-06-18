@@ -1,120 +1,28 @@
-
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
-import * as THREE from 'three';
+import { OrbitControls, Environment } from '@react-three/drei';
+import { EffectComposer, Bloom, DepthOfField, Vignette } from '@react-three/postprocessing';
 import { useGameStore } from '../store/gameStore';
 import { GameHUD } from './GameHUD';
 import { StartScreen } from './StartScreen';
 import { SettingsPanel } from './SettingsPanel';
 import { Leaderboard } from './Leaderboard';
-import { PowerUpEffect } from './PowerUpEffect';
-import { SoundManager } from './SoundManager';
-
-const GRID_SIZE = 20;
-const CELL_SIZE = 1;
-
-interface SnakeSegmentProps {
-  position: [number, number, number];
-  isHead?: boolean;
-}
-
-const SnakeSegment: React.FC<SnakeSegmentProps> = ({ position, isHead = false }) => {
-  const meshRef = useRef<THREE.Mesh>(null);
-
-  useEffect(() => {
-    if (meshRef.current) {
-      const scale = isHead ? 1.1 : 1.0;
-      meshRef.current.scale.setScalar(scale);
-    }
-  }, [isHead]);
-
-  return (
-    <mesh ref={meshRef} position={position}>
-      <boxGeometry args={[CELL_SIZE * 0.9, CELL_SIZE * 0.9, CELL_SIZE * 0.9]} />
-      <meshPhongMaterial 
-        color={isHead ? "#00ffff" : "#0099cc"} 
-        emissive={isHead ? "#004444" : "#002233"}
-        shininess={100}
-      />
-    </mesh>
-  );
-};
-
-interface FoodProps {
-  position: [number, number, number];
-  type: 'normal' | 'power';
-}
-
-const Food: React.FC<FoodProps> = ({ position, type }) => {
-  const meshRef = useRef<THREE.Mesh>(null);
-
-  useEffect(() => {
-    if (meshRef.current) {
-      const animate = () => {
-        if (meshRef.current) {
-          meshRef.current.rotation.y += 0.02;
-          meshRef.current.position.y = position[1] + Math.sin(Date.now() * 0.005) * 0.1;
-        }
-        requestAnimationFrame(animate);
-      };
-      animate();
-    }
-  }, [position]);
-
-  return (
-    <mesh ref={meshRef} position={position}>
-      <boxGeometry args={[CELL_SIZE * 0.8, CELL_SIZE * 0.8, CELL_SIZE * 0.8]} />
-      <meshPhongMaterial 
-        color={type === 'power' ? "#ff00ff" : "#ffff00"} 
-        emissive={type === 'power' ? "#440044" : "#444400"}
-        shininess={100}
-      />
-    </mesh>
-  );
-};
-
-const GameGrid: React.FC = () => {
-  const gridLines = [];
-  
-  // Create horizontal lines
-  for (let i = -GRID_SIZE/2; i <= GRID_SIZE/2; i++) {
-    const points = [
-      new THREE.Vector3(-GRID_SIZE/2, 0, i),
-      new THREE.Vector3(GRID_SIZE/2, 0, i)
-    ];
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: "#333366" }));
-    
-    gridLines.push(
-      <primitive key={`h${i}`} object={line} />
-    );
-  }
-  
-  // Create vertical lines
-  for (let i = -GRID_SIZE/2; i <= GRID_SIZE/2; i++) {
-    const points = [
-      new THREE.Vector3(i, 0, -GRID_SIZE/2),
-      new THREE.Vector3(i, 0, GRID_SIZE/2)
-    ];
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: "#333366" }));
-    
-    gridLines.push(
-      <primitive key={`v${i}`} object={line} />
-    );
-  }
-  
-  return <group>{gridLines}</group>;
-};
+import { RealisticSnake } from './3d/RealisticSnake';
+import { RealisticFood } from './3d/RealisticFood';
+import { ParticleEffects } from './3d/ParticleEffects';
+import { AdvancedLighting } from './3d/AdvancedLighting';
+import { CinematicCamera } from './3d/CinematicCamera';
+import { RealisticEnvironment } from './3d/RealisticEnvironment';
+import { SoundManager3D } from './3d/SoundManager3D';
+import { Vector3 } from 'three';
 
 export const SnakeGame: React.FC = () => {
   const {
     gameState,
     snake,
     food,
-    powerUps,
     score,
+    direction,
     gameMode,
     startGame,
     pauseGame,
@@ -127,6 +35,13 @@ export const SnakeGame: React.FC = () => {
 
   const gameLoopRef = useRef<number>();
   const lastUpdateRef = useRef<number>(0);
+  const [particleEffects, setParticleEffects] = useState<Array<{
+    id: string;
+    position: Vector3;
+    type: 'eating' | 'collision' | 'trail';
+    active: boolean;
+  }>>([]);
+  const [cameraShake, setCameraShake] = useState(false);
 
   const handleKeyPress = useCallback((event: KeyboardEvent) => {
     if (gameState !== 'playing') return;
@@ -187,6 +102,53 @@ export const SnakeGame: React.FC = () => {
     };
   }, [gameState, gameLoop]);
 
+  const handleFoodEaten = useCallback(() => {
+    // Create eating particle effect
+    const headPos = snake[0];
+    if (headPos) {
+      const newEffect = {
+        id: Date.now().toString(),
+        position: new Vector3(headPos.x - 10, 0.5, headPos.z - 10),
+        type: 'eating' as const,
+        active: true
+      };
+      
+      setParticleEffects(prev => [...prev, newEffect]);
+      
+      // Remove effect after animation
+      setTimeout(() => {
+        setParticleEffects(prev => prev.filter(effect => effect.id !== newEffect.id));
+      }, 2000);
+    }
+  }, [snake]);
+
+  const handleCollision = useCallback(() => {
+    setCameraShake(true);
+    
+    // Create collision particle effect
+    const headPos = snake[0];
+    if (headPos) {
+      const newEffect = {
+        id: Date.now().toString(),
+        position: new Vector3(headPos.x - 10, 0.5, headPos.z - 10),
+        type: 'collision' as const,
+        active: true
+      };
+      
+      setParticleEffects(prev => [...prev, newEffect]);
+    }
+    
+    // Stop camera shake after a short time
+    setTimeout(() => setCameraShake(false), 500);
+  }, [snake]);
+
+  // Monitor game state changes for effects
+  useEffect(() => {
+    if (gameState === 'gameOver') {
+      handleCollision();
+    }
+  }, [gameState, handleCollision]);
+
   if (showSettings) {
     return <SettingsPanel />;
   }
@@ -201,90 +163,129 @@ export const SnakeGame: React.FC = () => {
 
   return (
     <div className="w-full h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black relative overflow-hidden">
-      <SoundManager />
+      <SoundManager3D />
       
-      {/* Particle effects background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-transparent to-cyan-900/20"></div>
-      
-      {/* 3D Game Canvas */}
+      {/* Enhanced 3D Canvas */}
       <Canvas
-        camera={{ position: [0, 15, 15], fov: 60 }}
+        shadows
+        camera={{ position: [0, 8, 8], fov: 75 }}
         className="absolute inset-0"
+        gl={{ 
+          antialias: true, 
+          alpha: false,
+          powerPreference: "high-performance"
+        }}
       >
-        <ambientLight intensity={0.3} />
-        <directionalLight position={[10, 10, 5]} intensity={1} />
-        <spotLight position={[0, 20, 0]} intensity={0.5} color="#00ffff" />
+        {/* Advanced Lighting Setup */}
+        <AdvancedLighting />
         
-        <GameGrid />
+        {/* HDRI Environment */}
+        <Environment preset="night" />
         
-        {/* Render Snake */}
-        {snake.map((segment, index) => (
-          <SnakeSegment
-            key={index}
-            position={[segment.x - GRID_SIZE/2, 0.5, segment.z - GRID_SIZE/2]}
-            isHead={index === 0}
-          />
-        ))}
+        {/* Realistic Environment */}
+        <RealisticEnvironment />
         
-        {/* Render Food */}
+        {/* Enhanced Snake */}
+        <RealisticSnake 
+          segments={snake} 
+          isAlive={gameState === 'playing'} 
+        />
+        
+        {/* Enhanced Food */}
         {food.map((item, index) => (
-          <Food
+          <RealisticFood
             key={index}
-            position={[item.x - GRID_SIZE/2, 0.5, item.z - GRID_SIZE/2]}
-            type={item.type}
+            food={item}
+            onEaten={handleFoodEaten}
           />
         ))}
         
-        {/* Render Power-ups */}
-        {powerUps.map((powerUp, index) => (
-          <PowerUpEffect
-            key={index}
-            position={[powerUp.x - GRID_SIZE/2, 0.5, powerUp.z - GRID_SIZE/2]}
-            type={powerUp.type}
+        {/* Particle Effects */}
+        {particleEffects.map(effect => (
+          <ParticleEffects
+            key={effect.id}
+            position={effect.position}
+            active={effect.active}
+            type={effect.type}
           />
         ))}
         
-        <OrbitControls enablePan={false} enableZoom={false} />
+        {/* Cinematic Camera Controller */}
+        <CinematicCamera
+          snakeHead={snake[0] || { x: 10, z: 10 }}
+          direction={direction}
+          gameState={gameState}
+          shake={cameraShake}
+        />
+        
+        {/* Post-processing Effects */}
+        <EffectComposer>
+          <Bloom 
+            intensity={0.5}
+            luminanceThreshold={0.2}
+            luminanceSmoothing={0.9}
+          />
+          <DepthOfField 
+            focusDistance={0.1}
+            focalLength={0.02}
+            bokehScale={2}
+          />
+          <Vignette 
+            eskil={false}
+            offset={0.1}
+            darkness={0.9}
+          />
+        </EffectComposer>
+        
+        {/* Optional Orbit Controls (disabled during gameplay) */}
+        {gameState !== 'playing' && (
+          <OrbitControls 
+            enablePan={false} 
+            enableZoom={true}
+            maxDistance={20}
+            minDistance={5}
+          />
+        )}
       </Canvas>
 
       {/* Game HUD */}
       <GameHUD />
 
-      {/* Touch Controls for Mobile */}
+      {/* Enhanced Touch Controls */}
       <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 md:hidden">
         <div className="grid grid-cols-3 gap-2">
           <div></div>
           <button
             onTouchStart={() => moveSnake('up')}
-            className="w-12 h-12 bg-cyan-500/20 border border-cyan-500 rounded-lg flex items-center justify-center backdrop-blur-sm"
+            className="w-14 h-14 bg-cyan-500/30 border-2 border-cyan-400/50 rounded-xl flex items-center justify-center backdrop-blur-md shadow-lg shadow-cyan-400/25"
           >
-            <span className="text-cyan-400 text-xl">↑</span>
+            <span className="text-cyan-400 text-2xl font-bold">↑</span>
           </button>
           <div></div>
           <button
             onTouchStart={() => moveSnake('left')}
-            className="w-12 h-12 bg-cyan-500/20 border border-cyan-500 rounded-lg flex items-center justify-center backdrop-blur-sm"
+            className="w-14 h-14 bg-cyan-500/30 border-2 border-cyan-400/50 rounded-xl flex items-center justify-center backdrop-blur-md shadow-lg shadow-cyan-400/25"
           >
-            <span className="text-cyan-400 text-xl">←</span>
+            <span className="text-cyan-400 text-2xl font-bold">←</span>
           </button>
           <button
             onTouchStart={() => pauseGame()}
-            className="w-12 h-12 bg-purple-500/20 border border-purple-500 rounded-lg flex items-center justify-center backdrop-blur-sm"
+            className="w-14 h-14 bg-purple-500/30 border-2 border-purple-400/50 rounded-xl flex items-center justify-center backdrop-blur-md shadow-lg shadow-purple-400/25"
           >
-            <span className="text-purple-400 text-xs">⏸</span>
+            <span className="text-purple-400 text-sm font-bold">⏸</span>
           </button>
           <button
             onTouchStart={() => moveSnake('right')}
-            className="w-12 h-12 bg-cyan-500/20 border border-cyan-500 rounded-lg flex items-center justify-center backdrop-blur-sm"
+            className="w-14 h-14 bg-cyan-500/30 border-2 border-cyan-400/50 rounded-xl flex items-center justify-center backdrop-blur-md shadow-lg shadow-cyan-400/25"
           >
-            <span className="text-cyan-400 text-xl">→</span>
+            <span className="text-cyan-400 text-2xl font-bold">→</span>
           </button>
           <div></div>
           <button
             onTouchStart={() => moveSnake('down')}
-            className="w-12 h-12 bg-cyan-500/20 border border-cyan-500 rounded-lg flex items-center justify-center backdrop-blur-sm"
+            className="w-14 h-14 bg-cyan-500/30 border-2 border-cyan-400/50 rounded-xl flex items-center justify-center backdrop-blur-md shadow-lg shadow-cyan-400/25"
           >
-            <span className="text-cyan-400 text-xl">↓</span>
+            <span className="text-cyan-400 text-2xl font-bold">↓</span>
           </button>
           <div></div>
         </div>
