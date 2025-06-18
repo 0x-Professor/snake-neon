@@ -1,3 +1,4 @@
+
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
@@ -83,9 +84,10 @@ const GameGrid: React.FC = () => {
       new THREE.Vector3(GRID_SIZE/2, 0, i)
     ];
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: "#333366" }));
     
     gridLines.push(
-      <primitive key={`h${i}`} object={new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: "#333366" }))} />
+      <primitive key={`h${i}`} object={line} />
     );
   }
   
@@ -96,9 +98,10 @@ const GameGrid: React.FC = () => {
       new THREE.Vector3(i, 0, GRID_SIZE/2)
     ];
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: "#333366" }));
     
     gridLines.push(
-      <primitive key={`v${i}`} object={new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: "#333366" }))} />
+      <primitive key={`v${i}`} object={line} />
     );
   }
   
@@ -116,6 +119,7 @@ export const SnakeGame: React.FC = () => {
     startGame,
     pauseGame,
     moveSnake,
+    updateGame,
     settings,
     showSettings,
     showLeaderboard
@@ -160,12 +164,12 @@ export const SnakeGame: React.FC = () => {
   const gameLoop = useCallback((timestamp: number) => {
     if (gameState === 'playing') {
       if (timestamp - lastUpdateRef.current > (600 - settings.gameSpeed * 50)) {
-        // Game update logic will be handled by the store
+        updateGame();
         lastUpdateRef.current = timestamp;
       }
       gameLoopRef.current = requestAnimationFrame(gameLoop);
     }
-  }, [gameState, settings.gameSpeed]);
+  }, [gameState, settings.gameSpeed, updateGame]);
 
   useEffect(() => {
     if (gameState === 'playing') {

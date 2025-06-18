@@ -75,6 +75,7 @@ interface GameStore {
   pauseGame: () => void;
   resetGame: () => void;
   moveSnake: (direction: Direction) => void;
+  updateGame: () => void;
   updateSettings: (newSettings: Partial<Settings>) => void;
   toggleSettings: () => void;
   toggleLeaderboard: () => void;
@@ -99,11 +100,20 @@ const defaultSettings: Settings = {
   },
 };
 
-const generateFood = (): Food => ({
-  x: Math.floor(Math.random() * GRID_SIZE),
-  z: Math.floor(Math.random() * GRID_SIZE),
-  type: Math.random() < 0.1 ? 'power' : 'normal',
-});
+const generateFood = (snake: Position[]): Food => {
+  let position: Position;
+  do {
+    position = {
+      x: Math.floor(Math.random() * GRID_SIZE),
+      z: Math.floor(Math.random() * GRID_SIZE),
+    };
+  } while (snake.some(segment => segment.x === position.x && segment.z === position.z));
+  
+  return {
+    ...position,
+    type: Math.random() < 0.1 ? 'power' : 'normal',
+  };
+};
 
 const generatePowerUp = (): PowerUp => ({
   x: Math.floor(Math.random() * GRID_SIZE),
@@ -116,7 +126,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   gameState: 'menu',
   gameMode: 'classic',
   snake: [{ x: 10, z: 10 }],
-  food: [generateFood()],
+  food: [{ x: 15, z: 15, type: 'normal' }],
   powerUps: [],
   activePowerUps: [],
   direction: 'right',
@@ -138,11 +148,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
   
   // Actions
   startGame: (mode: GameMode) => {
+    const initialSnake = [{ x: 10, z: 10 }];
     set({
       gameState: 'playing',
       gameMode: mode,
-      snake: [{ x: 10, z: 10 }],
-      food: [generateFood()],
+      snake: initialSnake,
+      food: [generateFood(initialSnake)],
       powerUps: [],
       activePowerUps: [],
       direction: 'right',
@@ -164,10 +175,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   resetGame: () => {
+    const initialSnake = [{ x: 10, z: 10 }];
     set({
       gameState: 'menu',
-      snake: [{ x: 10, z: 10 }],
-      food: [generateFood()],
+      snake: initialSnake,
+      food: [generateFood(initialSnake)],
       powerUps: [],
       activePowerUps: [],
       direction: 'right',
@@ -178,9 +190,81 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   moveSnake: (direction: Direction) => {
-    const { gameState } = get();
+    const { gameState, direction: currentDirection } = get();
     if (gameState === 'playing') {
-      set({ direction });
+      // Prevent reversing into itself
+      const opposites: Record<Direction, Direction> = {
+        up: 'down',
+        down: 'up',
+        left: 'right',
+        right: 'left'
+      };
+      
+      if (opposites[direction] !== currentDirection) {
+        set({ direction });
+      }
+    }
+  },
+
+  updateGame: () => {
+    const { gameState, snake, direction, food, score, gameMode } = get();
+    
+    if (gameState !== 'playing') return;
+
+    const head = snake[0];
+    let newHead: Position;
+
+    // Calculate new head position based on direction
+    switch (direction) {
+      case 'up':
+        newHead = { x: head.x, z: head.z - 1 };
+        break;
+      case 'down':
+        newHead = { x: head.x, z: head.z + 1 };
+        break;
+      case 'left':
+        newHead = { x: head.x - 1, z: head.z };
+        break;
+      case 'right':
+        newHead = { x: head.x + 1, z: head.z };
+        break;
+    }
+
+    // Check wall collision
+    if (newHead.x < 0 || newHead.x >= GRID_SIZE || newHead.z < 0 || newHead.z >= GRID_SIZE) {
+      set({ gameState: 'gameOver' });
+      return;
+    }
+
+    // Check self collision
+    if (snake.some(segment => segment.x === newHead.x && segment.z === newHead.z)) {
+      set({ gameState: 'gameOver' });
+      return;
+    }
+
+    // Create new snake
+    const newSnake = [newHead, ...snake];
+
+    // Check food collision
+    const eatenFoodIndex = food.findIndex(f => f.x === newHead.x && f.z === newHead.z);
+    
+    if (eatenFoodIndex !== -1) {
+      // Snake ate food - grow and generate new food
+      const eatenFood = food[eatenFoodIndex];
+      const newFood = [...food];
+      newFood[eatenFoodIndex] = generateFood(newSnake);
+      
+      const newScore = score + (eatenFood.type === 'power' ? 20 : 10);
+      
+      set({
+        snake: newSnake,
+        food: newFood,
+        score: newScore,
+      });
+    } else {
+      // Snake didn't eat - remove tail
+      newSnake.pop();
+      set({ snake: newSnake });
     }
   },
 
