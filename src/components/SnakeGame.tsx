@@ -1,4 +1,3 @@
-
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Text, Box } from '@react-three/drei';
@@ -92,9 +91,7 @@ const GameGrid: React.FC = () => {
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
     
     gridLines.push(
-      <line key={`h${i}`} geometry={geometry}>
-        <lineBasicMaterial color="#333366" />
-      </line>
+      <primitive key={`h${i}`} object={new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: "#333366" }))} />
     );
   }
   
@@ -107,9 +104,7 @@ const GameGrid: React.FC = () => {
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
     
     gridLines.push(
-      <line key={`v${i}`} geometry={geometry}>
-        <lineBasicMaterial color="#333366" />
-      </line>
+      <primitive key={`v${i}`} object={new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: "#333366" }))} />
     );
   }
   
