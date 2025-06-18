@@ -1,8 +1,7 @@
-
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Environment } from '@react-three/drei';
-import { EffectComposer, Bloom, DepthOfField, Vignette } from '@react-three/postprocessing';
+import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import { useGameStore } from '../store/gameStore';
 import { GameHUD } from './GameHUD';
 import { StartScreen } from './StartScreen';
@@ -219,21 +218,12 @@ export const SnakeGame: React.FC = () => {
           shake={cameraShake}
         />
         
-        {/* Post-processing Effects - Fixed props */}
+        {/* Simplified Post-processing Effects */}
         <EffectComposer>
           <Bloom 
             intensity={0.5}
             luminanceThreshold={0.2}
             luminanceSmoothing={0.9}
-          />
-          <DepthOfField 
-            focusDistance={0.1}
-            focalLength={0.02}
-            bokehScale={2}
-          />
-          <Vignette 
-            offset={0.1}
-            darkness={0.9}
           />
         </EffectComposer>
         
