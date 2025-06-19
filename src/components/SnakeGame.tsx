@@ -7,8 +7,8 @@ import { GameHUD } from './GameHUD';
 import { StartScreen } from './StartScreen';
 import { SettingsPanel } from './SettingsPanel';
 import { Leaderboard } from './Leaderboard';
-import { GLTFSnake } from './3d/GLTFSnake';
-import { GLTFFood } from './3d/GLTFFood';
+import { RealisticSnake } from './3d/RealisticSnake';
+import { RealisticFood } from './3d/RealisticFood';
 import { ParticleEffects } from './3d/ParticleEffects';
 import { AdvancedLighting } from './3d/AdvancedLighting';
 import { RealisticEnvironment } from './3d/RealisticEnvironment';
@@ -248,14 +248,14 @@ export const SnakeGame: React.FC = () => {
         
         <RealisticEnvironment />
         
-        <GLTFSnake
+        <RealisticSnake
           segments={snake}
           isAlive={gameState === 'playing'}
           direction={direction}
         />
         
         {food.map((item, i) => (
-          <GLTFFood
+          <RealisticFood
             key={`food-${i}-${item.x}-${item.z}`}
             food={item}
             onEaten={handleFoodEaten}
