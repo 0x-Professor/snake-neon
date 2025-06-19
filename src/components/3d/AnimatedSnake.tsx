@@ -2,7 +2,7 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGLTF, useAnimations } from '@react-three/drei';
-import { Group, Vector3, AnimationMixer } from 'three';
+import { Group, Vector3, AnimationMixer, Mesh } from 'three';
 import { Position, Direction } from '../../store/gameStore';
 import { GLTF } from 'three-stdlib';
 
@@ -59,16 +59,19 @@ const SnakeModel: React.FC<AnimatedSnakeProps> = ({ segments, isAlive, direction
       try {
         const clonedScene = scene.clone();
         clonedScene.traverse((child) => {
-          if (child.isMesh) {
-            child.castShadow = true;
-            child.receiveShadow = true;
-            if (child.material) {
+          // Type guard to check if child is a Mesh
+          if ((child as Mesh).isMesh) {
+            const mesh = child as Mesh;
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            if (mesh.material) {
               // Apply PBR material enhancements
-              child.material.envMapIntensity = 2.0;
-              child.material.roughness = 0.3;
-              child.material.metalness = 0.1;
-              child.material.clearcoat = 0.8;
-              child.material.clearcoatRoughness = 0.2;
+              const material = mesh.material as any;
+              material.envMapIntensity = 2.0;
+              material.roughness = 0.3;
+              material.metalness = 0.1;
+              material.clearcoat = 0.8;
+              material.clearcoatRoughness = 0.2;
             }
           }
         });
