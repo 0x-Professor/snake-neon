@@ -46,6 +46,7 @@ const FALLBACK_FOODS = [
 
 export const GLTFFood: React.FC<GLTFFoodProps> = ({ food, onEaten }) => {
   const meshRef = useRef<Mesh>(null);
+  const gltfGroupRef = useRef<THREE.Group>(null);
   const [hovered, setHovered] = useState(false);
   const animationTime = useRef(0);
 
@@ -66,26 +67,30 @@ export const GLTFFood: React.FC<GLTFFoodProps> = ({ food, onEaten }) => {
     gltf = null;
   }
 
+  const hasValidGLTF = gltf && gltf.scene;
+
   useFrame((state, delta) => {
     animationTime.current += delta;
     
-    if (meshRef.current) {
+    const targetRef = hasValidGLTF ? gltfGroupRef : meshRef;
+    
+    if (targetRef.current) {
       // Floating animation
       const floatHeight = 0.3 + Math.sin(animationTime.current * 2 + food.x * 0.5) * 0.1;
-      meshRef.current.position.y = floatHeight;
+      targetRef.current.position.y = floatHeight;
       
       // Rotation
-      meshRef.current.rotation.y += delta * (food.type === 'power' ? 2 : 1);
+      targetRef.current.rotation.y += delta * (food.type === 'power' ? 2 : 1);
       
       // Pulsing for power food
       if (food.type === 'power') {
         const scale = 1 + Math.sin(animationTime.current * 4) * 0.1;
-        meshRef.current.scale.setScalar(scale);
+        targetRef.current.scale.setScalar(scale);
       }
       
       // Hover effect
       if (hovered) {
-        meshRef.current.scale.multiplyScalar(1.2);
+        targetRef.current.scale.multiplyScalar(1.2);
       }
     }
   });
@@ -100,33 +105,36 @@ export const GLTFFood: React.FC<GLTFFoodProps> = ({ food, onEaten }) => {
 
   return (
     <group position={[food.x - 10, 0, food.z - 10]}>
-      <mesh
-        ref={meshRef}
-        onClick={handleClick}
-        onPointerOver={handlePointerEnter}
-        onPointerOut={handlePointerLeave}
-      >
-        {gltf && gltf.scene ? (
-          <primitive 
-            object={gltf.scene.clone()} 
-            scale={[0.2, 0.2, 0.2]}
+      {hasValidGLTF ? (
+        <group
+          ref={gltfGroupRef}
+          onClick={handleClick}
+          onPointerOver={handlePointerEnter}
+          onPointerOut={handlePointerLeave}
+          scale={[0.2, 0.2, 0.2]}
+        >
+          <primitive object={gltf.scene.clone()} />
+        </group>
+      ) : (
+        <mesh
+          ref={meshRef}
+          onClick={handleClick}
+          onPointerOver={handlePointerEnter}
+          onPointerOut={handlePointerLeave}
+        >
+          {selectedFood.geometry}
+          <meshPhysicalMaterial
+            color={selectedFood.color}
+            emissive={selectedFood.emissive}
+            emissiveIntensity={food.type === 'power' ? 0.5 : 0.2}
+            metalness={0.1}
+            roughness={0.3}
+            clearcoat={0.8}
+            transparent
+            opacity={hovered ? 0.9 : 1.0}
           />
-        ) : (
-          <>
-            {selectedFood.geometry}
-            <meshPhysicalMaterial
-              color={selectedFood.color}
-              emissive={selectedFood.emissive}
-              emissiveIntensity={food.type === 'power' ? 0.5 : 0.2}
-              metalness={0.1}
-              roughness={0.3}
-              clearcoat={0.8}
-              transparent
-              opacity={hovered ? 0.9 : 1.0}
-            />
-          </>
-        )}
-      </mesh>
+        </mesh>
+      )}
       
       {/* Glow effect */}
       <pointLight

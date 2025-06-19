@@ -19,6 +19,7 @@ interface GLTFSnakeProps {
 
 export const GLTFSnake: React.FC<GLTFSnakeProps> = ({ segments, isAlive, direction }) => {
   const groupRef = useRef<Group>(null);
+  const gltfGroupRef = useRef<THREE.Group>(null);
   const [gltfLoaded, setGltfLoaded] = useState(false);
   const animationTime = useRef(0);
 
@@ -26,7 +27,7 @@ export const GLTFSnake: React.FC<GLTFSnakeProps> = ({ segments, isAlive, directi
   let gltf, actions;
   try {
     gltf = useGLTF('/models/snake.glb');
-    const animationsResult = useAnimations(gltf.animations, groupRef);
+    const animationsResult = useAnimations(gltf.animations, gltfGroupRef);
     actions = animationsResult.actions;
     setGltfLoaded(true);
   } catch (error) {
@@ -34,6 +35,8 @@ export const GLTFSnake: React.FC<GLTFSnakeProps> = ({ segments, isAlive, directi
     gltf = null;
     actions = null;
   }
+
+  const hasValidGLTF = gltf && gltfLoaded && gltf.scene;
 
   // Create fallback snake geometry if GLTF fails to load
   const fallbackSnake = useMemo(() => {
@@ -53,14 +56,14 @@ export const GLTFSnake: React.FC<GLTFSnakeProps> = ({ segments, isAlive, directi
 
   // Setup animations
   useEffect(() => {
-    if (actions && gltfLoaded) {
+    if (actions && hasValidGLTF) {
       // Play the first animation if available
       const actionNames = Object.keys(actions);
       if (actionNames.length > 0 && actions[actionNames[0]]) {
         actions[actionNames[0]].play();
       }
     }
-  }, [actions, gltfLoaded]);
+  }, [actions, hasValidGLTF]);
 
   // Animate the snake
   useFrame((state, delta) => {
@@ -98,16 +101,17 @@ export const GLTFSnake: React.FC<GLTFSnakeProps> = ({ segments, isAlive, directi
   return (
     <group ref={groupRef}>
       {/* GLTF Model */}
-      {gltf && gltfLoaded && gltf.scene && (
-        <primitive 
-          object={gltf.scene.clone()} 
+      {hasValidGLTF && (
+        <group
+          ref={gltfGroupRef}
           scale={isAlive ? [0.3, 0.3, 0.3] : [0.25, 0.25, 0.25]}
-          rotation={[0, 0, 0]}
-        />
+        >
+          <primitive object={gltf.scene.clone()} />
+        </group>
       )}
       
       {/* Fallback procedural snake if GLTF fails */}
-      {(!gltf || !gltfLoaded || !gltf.scene) && (
+      {!hasValidGLTF && (
         <>
           {/* Snake Head */}
           <mesh position={[0, 0, 0]}>
