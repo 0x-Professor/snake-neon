@@ -123,7 +123,11 @@ export const SnakeGame: React.FC = () => {
   const gameLoop = useCallback(
     (timestamp: number) => {
       if (gameState === 'playing') {
-        const gameSpeed = Math.max(100, 400 - settings.gameSpeed * 30);
+        // Dynamic game speed based on score
+        const baseSpeed = 400;
+        const speedIncrease = Math.floor(score / 50) * 20; // Increase speed every 50 points
+        const gameSpeed = Math.max(150, baseSpeed - settings.gameSpeed * 30 - speedIncrease);
+        
         if (timestamp - lastUpdateRef.current > gameSpeed) {
           updateGame();
           lastUpdateRef.current = timestamp;
@@ -131,7 +135,7 @@ export const SnakeGame: React.FC = () => {
         gameLoopRef.current = requestAnimationFrame(gameLoop);
       }
     },
-    [gameState, settings.gameSpeed, updateGame]
+    [gameState, settings.gameSpeed, updateGame, score]
   );
 
   useEffect(() => {
@@ -239,10 +243,12 @@ export const SnakeGame: React.FC = () => {
           
           <ProfessionalEnvironment />
           
+          {/* Single snake instance with score-based speed */}
           <AnimatedSnake
             segments={snake}
             isAlive={gameState === 'playing'}
             direction={direction}
+            score={score}
           />
           
           {food.map((item, i) => (

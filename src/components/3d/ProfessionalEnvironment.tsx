@@ -54,7 +54,7 @@ export const ProfessionalEnvironment: React.FC = () => {
       {/* HDRI Environment lighting */}
       <Environment preset="city" />
       
-      {/* Enhanced game board with PBR materials */}
+      {/* Clean game board without grid lines */}
       <mesh receiveShadow position={[0, -0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[GRID_SIZE + 2, GRID_SIZE + 2]} />
         <meshPhysicalMaterial
@@ -69,38 +69,12 @@ export const ProfessionalEnvironment: React.FC = () => {
         />
       </mesh>
 
-      {/* Glowing grid lines */}
-      {Array.from({ length: GRID_SIZE + 1 }, (_, i) => (
-        <React.Fragment key={`enhanced-grid-${i}`}>
-          <mesh position={[i - GRID_SIZE/2, 0.01, 0]}>
-            <planeGeometry args={[0.08, GRID_SIZE]} />
-            <meshStandardMaterial 
-              color="#00ffff" 
-              transparent 
-              opacity={0.6}
-              emissive="#00ffff"
-              emissiveIntensity={0.4}
-            />
-          </mesh>
-          <mesh position={[0, 0.01, i - GRID_SIZE/2]} rotation={[0, Math.PI/2, 0]}>
-            <planeGeometry args={[0.08, GRID_SIZE]} />
-            <meshStandardMaterial 
-              color="#00ffff" 
-              transparent 
-              opacity={0.6}
-              emissive="#00ffff"
-              emissiveIntensity={0.4}
-            />
-          </mesh>
-        </React.Fragment>
-      ))}
-
-      {/* Enhanced boundary walls with professional glow */}
+      {/* Minimal boundary walls - only outer perimeter */}
       {[
-        { pos: [0, 1, -GRID_SIZE/2 - 0.5] as [number, number, number], size: [GRID_SIZE + 1, 2, 1] as [number, number, number] },
-        { pos: [0, 1, GRID_SIZE/2 + 0.5] as [number, number, number], size: [GRID_SIZE + 1, 2, 1] as [number, number, number] },
-        { pos: [-GRID_SIZE/2 - 0.5, 1, 0] as [number, number, number], size: [1, 2, GRID_SIZE] as [number, number, number] },
-        { pos: [GRID_SIZE/2 + 0.5, 1, 0] as [number, number, number], size: [1, 2, GRID_SIZE] as [number, number, number] }
+        { pos: [0, 0.5, -GRID_SIZE/2 - 0.5] as [number, number, number], size: [GRID_SIZE + 1, 1, 0.2] as [number, number, number] },
+        { pos: [0, 0.5, GRID_SIZE/2 + 0.5] as [number, number, number], size: [GRID_SIZE + 1, 1, 0.2] as [number, number, number] },
+        { pos: [-GRID_SIZE/2 - 0.5, 0.5, 0] as [number, number, number], size: [0.2, 1, GRID_SIZE] as [number, number, number] },
+        { pos: [GRID_SIZE/2 + 0.5, 0.5, 0] as [number, number, number], size: [0.2, 1, GRID_SIZE] as [number, number, number] }
       ].map((wall, index) => (
         <group key={`wall-${index}`}>
           <mesh position={wall.pos} castShadow>
@@ -108,21 +82,21 @@ export const ProfessionalEnvironment: React.FC = () => {
             <meshPhysicalMaterial
               color="#ff00aa"
               emissive="#ff00aa"
-              emissiveIntensity={0.8}
+              emissiveIntensity={0.6}
               transparent
-              opacity={0.7}
+              opacity={0.8}
               roughness={0.1}
               metalness={0.9}
               clearcoat={1.0}
               clearcoatRoughness={0.05}
             />
           </mesh>
-          {/* Glow effect */}
+          {/* Subtle glow effect */}
           <pointLight
             position={wall.pos}
             color="#ff00aa"
-            intensity={1.2}
-            distance={8}
+            intensity={0.8}
+            distance={6}
             decay={2}
           />
         </group>
@@ -144,27 +118,27 @@ export const ProfessionalEnvironment: React.FC = () => {
         shadow-bias={-0.0001}
       />
       
-      <ambientLight intensity={0.3} color="#4080ff" />
+      <ambientLight intensity={0.4} color="#4080ff" />
       
       {/* Corner accent lights for depth */}
       {[
-        [-GRID_SIZE/2, 3, -GRID_SIZE/2] as [number, number, number],
-        [GRID_SIZE/2, 3, -GRID_SIZE/2] as [number, number, number],
-        [-GRID_SIZE/2, 3, GRID_SIZE/2] as [number, number, number],
-        [GRID_SIZE/2, 3, GRID_SIZE/2] as [number, number, number]
+        [-GRID_SIZE/2, 2, -GRID_SIZE/2] as [number, number, number],
+        [GRID_SIZE/2, 2, -GRID_SIZE/2] as [number, number, number],
+        [-GRID_SIZE/2, 2, GRID_SIZE/2] as [number, number, number],
+        [GRID_SIZE/2, 2, GRID_SIZE/2] as [number, number, number]
       ].map((pos, i) => (
         <pointLight
           key={`corner-${i}`}
           position={pos}
           color={['#00ffff', '#ff0080', '#8000ff', '#ff8000'][i]}
-          intensity={0.8}
-          distance={12}
+          intensity={0.5}
+          distance={10}
           decay={2}
         />
       ))}
 
       {/* Atmospheric fog */}
-      <fog attach="fog" args={['#001122', 30, 80]} />
+      <fog attach="fog" args={['#001122', 25, 70]} />
     </>
   );
 };
