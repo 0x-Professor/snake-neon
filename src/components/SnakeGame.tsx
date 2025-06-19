@@ -1,18 +1,17 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { Environment, OrbitControls } from '@react-three/drei';
+import { Suspense } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { GameHUD } from './GameHUD';
 import { StartScreen } from './StartScreen';
 import { SettingsPanel } from './SettingsPanel';
 import { Leaderboard } from './Leaderboard';
-import { GLTFSnake } from './3d/GLTFSnake';
 import { GLTFFood } from './3d/GLTFFood';
 import { ParticleEffects } from './3d/ParticleEffects';
-import { EnhancedLighting } from './3d/EnhancedLighting';
-import { RealisticEnvironment } from './3d/RealisticEnvironment';
+import { ProfessionalEnvironment } from './3d/ProfessionalEnvironment';
+import { AnimatedSnake } from './3d/AnimatedSnake';
+import { CameraController } from './3d/CameraController';
 import { SoundManager3D } from './3d/SoundManager3D';
-import { StaticCamera } from './3d/StaticCamera';
 import { Vector3 } from 'three';
 
 export const SnakeGame: React.FC = () => {
@@ -37,6 +36,8 @@ export const SnakeGame: React.FC = () => {
   const gameLoopRef = useRef<number>();
   const lastUpdateRef = useRef<number>(0);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [cameraMode, setCameraMode] = useState<'third-person' | 'first-person'>('third-person');
+  const [cameraZoom, setCameraZoom] = useState(0);
   const [particleEffects, setParticleEffects] = useState<Array<{
     id: string;
     position: Vector3;
@@ -44,7 +45,6 @@ export const SnakeGame: React.FC = () => {
     active: boolean;
   }>>([]);
   const [cameraShake, setCameraShake] = useState(false);
-  const [orbitControlsEnabled, setOrbitControlsEnabled] = useState(false);
 
   useEffect(() => {
     setIsInitialized(true);
@@ -69,6 +69,12 @@ export const SnakeGame: React.FC = () => {
       if (key === 'h') {
         if (gameState === 'menu') return;
         resetGame();
+        event.preventDefault();
+        return;
+      }
+
+      if (key === 'c') {
+        setCameraMode(prev => prev === 'third-person' ? 'first-person' : 'third-person');
         event.preventDefault();
         return;
       }
@@ -98,9 +104,6 @@ export const SnakeGame: React.FC = () => {
           event.preventDefault();
           pauseGame();
           return;
-        case 'o':
-          setOrbitControlsEnabled(!orbitControlsEnabled);
-          return;
       }
 
       if (newDirection !== direction) {
@@ -109,7 +112,7 @@ export const SnakeGame: React.FC = () => {
 
       event.preventDefault();
     },
-    [gameState, direction, moveSnake, pauseGame, resetGame, showSettings, showLeaderboard, toggleSettings, toggleLeaderboard, orbitControlsEnabled]
+    [gameState, direction, moveSnake, pauseGame, resetGame, showSettings, showLeaderboard, toggleSettings, toggleLeaderboard]
   );
 
   useEffect(() => {
@@ -142,7 +145,7 @@ export const SnakeGame: React.FC = () => {
     return () => {
       if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
     };
-  }, [gameState, updateGame]);
+  }, [gameState, gameLoop]);
 
   const handleFoodEaten = useCallback(() => {
     const headPos = snake[0];
@@ -177,6 +180,15 @@ export const SnakeGame: React.FC = () => {
     if (gameState === 'gameOver') handleCollision();
   }, [gameState, handleCollision]);
 
+  // Working pause game function
+  const handlePauseToggle = () => {
+    if (gameState === 'playing') {
+      pauseGame();
+    } else if (gameState === 'paused') {
+      pauseGame(); // This should resume the game
+    }
+  };
+
   if (showSettings) return <SettingsPanel />;
   if (showLeaderboard) return <Leaderboard />;
   if (gameState === 'menu') return <StartScreen />;
@@ -192,10 +204,10 @@ export const SnakeGame: React.FC = () => {
 
   return (
     <div className="w-full h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black relative overflow-hidden">
-      {/* Background effects */}
+      {/* Enhanced background effects */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(120,119,198,0.1),rgba(255,255,255,0))]"></div>
-        {Array.from({ length: 30 }).map((_, i) => (
+        {Array.from({ length: 50 }).map((_, i) => (
           <div
             key={i}
             className="absolute w-1 h-1 bg-cyan-400 rounded-full animate-pulse"
@@ -211,102 +223,122 @@ export const SnakeGame: React.FC = () => {
 
       <SoundManager3D />
 
-      {/* Enhanced 3D Canvas with static camera */}
+      {/* Professional 3D Canvas with enhanced camera */}
       <Canvas
         shadows
-        camera={{ position: [0, 25, 20], fov: 60, near: 0.1, far: 1000 }}
+        camera={{ position: [0, 15, 12], fov: 65, near: 0.1, far: 1000 }}
         className="absolute inset-0"
       >
-        {orbitControlsEnabled ? (
-          <OrbitControls 
-            enablePan={true} 
-            enableZoom={true} 
-            enableRotate={true}
-            target={[0, 0, 0]}
-          />
-        ) : (
-          <StaticCamera 
+        <Suspense fallback={null}>
+          <CameraController 
             snakeHead={snake[0] || { x: 10, z: 10 }}
+            mode={cameraMode}
             shake={cameraShake}
+            zoom={cameraZoom}
           />
-        )}
-        
-        <EnhancedLighting />
-        <Environment preset="sunset" />
-        
-        <RealisticEnvironment />
-        
-        <GLTFSnake
-          segments={snake}
-          isAlive={gameState === 'playing'}
-          direction={direction}
-        />
-        
-        {food.map((item, i) => (
-          <GLTFFood
-            key={`food-${i}-${item.x}-${item.z}`}
-            food={item}
-            onEaten={handleFoodEaten}
+          
+          <ProfessionalEnvironment />
+          
+          <AnimatedSnake
+            segments={snake}
+            isAlive={gameState === 'playing'}
+            direction={direction}
           />
-        ))}
-        
-        {particleEffects.map((effect) => (
-          <ParticleEffects
-            key={effect.id}
-            position={effect.position}
-            active={effect.active}
-            type={effect.type}
-          />
-        ))}
+          
+          {food.map((item, i) => (
+            <GLTFFood
+              key={`food-${i}-${item.x}-${item.z}`}
+              food={item}
+              onEaten={handleFoodEaten}
+            />
+          ))}
+          
+          {particleEffects.map((effect) => (
+            <ParticleEffects
+              key={effect.id}
+              position={effect.position}
+              active={effect.active}
+              type={effect.type}
+            />
+          ))}
+        </Suspense>
       </Canvas>
 
-      {/* Enhanced UI with better layout */}
+      {/* Enhanced UI with CSS Grid Layout */}
       <div className="absolute inset-0 pointer-events-none">
         <GameHUD />
         
-        {/* Control Panel - Fixed Grid Layout */}
+        {/* Professional Control Panel - Responsive Grid */}
         <div className="absolute top-4 right-4 pointer-events-auto">
-          <div className="grid grid-cols-1 gap-3 min-w-[140px]">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 w-full max-w-sm">
             <button
-              onClick={() => setOrbitControlsEnabled(!orbitControlsEnabled)}
-              className="flex items-center justify-center px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-500 hover:to-pink-500 transition-all duration-200 text-sm font-medium shadow-lg"
+              onClick={() => setCameraMode(prev => prev === 'third-person' ? 'first-person' : 'third-person')}
+              className="flex items-center justify-center px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-500 hover:to-purple-500 transition-all duration-300 text-sm font-medium shadow-lg transform hover:scale-105"
             >
-              <span className="mr-2">🎥</span>
-              {orbitControlsEnabled ? 'Free Cam' : 'Static Cam'}
+              <span className="mr-2">📷</span>
+              {cameraMode === 'third-person' ? '3rd Person' : '1st Person'}
             </button>
+            
             <button
-              onClick={() => pauseGame()}
-              className="flex items-center justify-center px-4 py-3 bg-gradient-to-r from-yellow-600 to-orange-600 text-white rounded-lg hover:from-yellow-500 hover:to-orange-500 transition-all duration-200 text-sm font-medium shadow-lg"
+              onClick={handlePauseToggle}
+              className="flex items-center justify-center px-4 py-3 bg-gradient-to-r from-yellow-600 to-orange-600 text-white rounded-lg hover:from-yellow-500 hover:to-orange-500 transition-all duration-300 text-sm font-medium shadow-lg transform hover:scale-105"
             >
               <span className="mr-2">{gameState === 'paused' ? '▶️' : '⏸️'}</span>
               {gameState === 'paused' ? 'Resume' : 'Pause'}
             </button>
+            
             <button
               onClick={() => resetGame()}
-              className="flex items-center justify-center px-4 py-3 bg-gradient-to-r from-red-600 to-orange-600 text-white rounded-lg hover:from-red-500 hover:to-orange-500 transition-all duration-200 text-sm font-medium shadow-lg"
+              className="flex items-center justify-center px-4 py-3 bg-gradient-to-r from-red-600 to-orange-600 text-white rounded-lg hover:from-red-500 hover:to-orange-500 transition-all duration-300 text-sm font-medium shadow-lg transform hover:scale-105"
             >
               <span className="mr-2">🏠</span>
               Home
             </button>
+            
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-cyan-300 font-medium">Zoom</label>
+              <input
+                type="range"
+                min="-2"
+                max="3"
+                step="0.1"
+                value={cameraZoom}
+                onChange={(e) => setCameraZoom(parseFloat(e.target.value))}
+                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+              />
+            </div>
           </div>
         </div>
         
-        {/* Game Controls Info - Better positioning */}
-        <div className="absolute bottom-4 left-4 pointer-events-none">
-          <div className="bg-black/40 backdrop-blur-md border border-cyan-500/30 rounded-lg p-3">
-            <div className="text-cyan-300 text-xs space-y-1">
-              <div className="font-semibold text-cyan-400 mb-2">CONTROLS</div>
-              <div>WASD/Arrows: Move</div>
-              <div>SPACE: Pause</div>
-              <div>O: Toggle Camera</div>
-              <div>H: Home</div>
-              <div>ESC: Back/Pause</div>
+        {/* Enhanced Game Status with Flexbox */}
+        <div className="absolute top-4 left-4 pointer-events-none">
+          <div className="flex flex-col gap-3">
+            {gameState === 'playing' && (
+              <div className="bg-black/50 backdrop-blur-md border border-green-500/40 rounded-lg p-3">
+                <div className="flex items-center space-x-3">
+                  <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+                  <span className="text-green-400 font-mono text-sm font-semibold">
+                    PROFESSIONAL MODE ACTIVE
+                  </span>
+                </div>
+              </div>
+            )}
+            
+            <div className="bg-black/50 backdrop-blur-md border border-cyan-500/40 rounded-lg p-3">
+              <div className="text-cyan-300 text-xs space-y-1">
+                <div className="font-semibold text-cyan-400 mb-2">CONTROLS</div>
+                <div>WASD/Arrows: Move</div>
+                <div>SPACE: Pause</div>
+                <div>C: Camera Mode</div>
+                <div>H: Home</div>
+                <div>ESC: Back/Pause</div>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Touch Controls for Mobile */}
+      {/* Touch Controls for Mobile - Enhanced Grid Layout */}
       <div className="absolute bottom-4 right-4 md:hidden pointer-events-auto">
         <div className="grid grid-cols-3 gap-2">
           <div></div>
@@ -332,7 +364,7 @@ export const SnakeGame: React.FC = () => {
           <button
             onTouchStart={(e) => {
               e.preventDefault();
-              pauseGame();
+              handlePauseToggle();
             }}
             className="w-12 h-12 bg-gradient-to-t from-purple-600 to-purple-400 border border-purple-300 rounded-lg flex items-center justify-center backdrop-blur-md shadow-lg"
           >
@@ -361,20 +393,6 @@ export const SnakeGame: React.FC = () => {
         </div>
       </div>
 
-      {/* Game Status Overlays */}
-      {gameState === 'playing' && (
-        <div className="absolute top-4 left-4 pointer-events-none">
-          <div className="bg-black/40 backdrop-blur-md border border-green-500/30 rounded-lg p-3">
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-              <span className="text-green-400 font-mono text-sm font-semibold">
-                REALISTIC MODE ACTIVE
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-
       {gameState === 'paused' && (
         <div className="absolute inset-0 bg-black/60 flex items-center justify-center pointer-events-none">
           <div className="text-center">
@@ -390,7 +408,7 @@ export const SnakeGame: React.FC = () => {
           <div className="text-center p-8 bg-gray-900/90 rounded-xl border border-red-500 max-w-md">
             <div className="text-5xl font-bold text-red-400 mb-4 animate-pulse">GAME OVER</div>
             <div className="text-red-300 font-mono mb-6 text-xl">Final Score: {score}</div>
-            <div className="space-y-4">
+            <div className="flex flex-col gap-4">
               <button
                 onClick={() => startGame('classic')}
                 className="w-full px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg hover:from-cyan-500 hover:to-blue-500 transition-all duration-200 font-bold"
@@ -414,7 +432,7 @@ export const SnakeGame: React.FC = () => {
         </div>
       )}
 
-      {/* Scan lines effect */}
+      {/* Enhanced scan lines effect */}
       <div className="absolute inset-0 pointer-events-none opacity-5">
         <div
           className="absolute inset-0 bg-gradient-to-b from-transparent via-cyan-400 to-transparent animate-pulse"
