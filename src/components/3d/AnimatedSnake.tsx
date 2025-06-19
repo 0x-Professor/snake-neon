@@ -1,10 +1,8 @@
 
-import React, { useRef, useEffect, useState, useMemo } from 'react';
+import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { useGLTF, useAnimations } from '@react-three/drei';
-import { Group, Vector3, AnimationMixer, Mesh } from 'three';
+import { Group, Vector3 } from 'three';
 import { Position, Direction } from '../../store/gameStore';
-import { GLTF } from 'three-stdlib';
 
 interface AnimatedSnakeProps {
   segments: Position[];
@@ -12,86 +10,11 @@ interface AnimatedSnakeProps {
   direction: Direction;
 }
 
-type SnakeGLTF = GLTF & {
-  nodes: any;
-  materials: any;
-};
-
 const SnakeModel: React.FC<AnimatedSnakeProps> = ({ segments, isAlive, direction }) => {
   const groupRef = useRef<Group>(null);
-  const gltfGroupRef = useRef<Group>(null);
-  const [loadError, setLoadError] = useState(false);
-  const mixerRef = useRef<AnimationMixer | null>(null);
-
-  // Load GLTF model with enhanced error handling
-  const { scene, animations } = useGLTF('/models/snake.glb', true) as SnakeGLTF;
-
-  // Setup animation mixer when animations are available
-  useEffect(() => {
-    if (animations && animations.length > 0 && scene) {
-      try {
-        const mixer = new AnimationMixer(scene);
-        mixerRef.current = mixer;
-        
-        // Play all animations
-        animations.forEach(clip => {
-          const action = mixer.clipAction(clip);
-          action.play();
-        });
-      } catch (error) {
-        console.warn('Failed to setup animation mixer:', error);
-        setLoadError(true);
-      }
-    }
-    
-    return () => {
-      if (mixerRef.current) {
-        mixerRef.current.stopAllAction();
-      }
-    };
-  }, [animations, scene]);
-
-  const { actions } = useAnimations(animations || [], gltfGroupRef);
-
-  // Enhanced snake scene with PBR materials
-  const clonedScene = useMemo(() => {
-    if (scene && !loadError) {
-      try {
-        const clonedScene = scene.clone();
-        clonedScene.traverse((child) => {
-          // Type guard to check if child is a Mesh
-          if ((child as Mesh).isMesh) {
-            const mesh = child as Mesh;
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
-            if (mesh.material) {
-              // Apply PBR material enhancements
-              const material = mesh.material as any;
-              material.envMapIntensity = 2.0;
-              material.roughness = 0.3;
-              material.metalness = 0.1;
-              material.clearcoat = 0.8;
-              material.clearcoatRoughness = 0.2;
-            }
-          }
-        });
-        return clonedScene;
-      } catch (error) {
-        console.warn('Failed to clone snake scene:', error);
-        setLoadError(true);
-        return null;
-      }
-    }
-    return null;
-  }, [scene, loadError]);
 
   // Animation loop with boundary checks
   useFrame((state, delta) => {
-    // Update animation mixer
-    if (mixerRef.current && isAlive) {
-      mixerRef.current.update(delta);
-    }
-
     if (groupRef.current && segments.length > 0) {
       const headPos = segments[0];
       
@@ -124,59 +47,10 @@ const SnakeModel: React.FC<AnimatedSnakeProps> = ({ segments, isAlive, direction
     }
   });
 
-  // GLTF model rendering
-  if (clonedScene && !loadError) {
-    return (
-      <group ref={groupRef}>
-        <group
-          ref={gltfGroupRef}
-          scale={isAlive ? [0.5, 0.5, 0.5] : [0.4, 0.4, 0.4]}
-        >
-          <primitive object={clonedScene} />
-        </group>
-        
-        {/* Enhanced lighting for the snake */}
-        {isAlive && (
-          <pointLight
-            position={[0, 0.3, 0]}
-            color="#00aa00"
-            intensity={0.6}
-            distance={4}
-            decay={2}
-          />
-        )}
-        
-        {/* Snake body segments for length visualization */}
-        {segments.slice(1).map((segment, index) => (
-          <mesh
-            key={`body-${index}`}
-            position={[
-              Math.max(-9.5, Math.min(9.5, segment.x - 10)),
-              0.1,
-              Math.max(-9.5, Math.min(9.5, segment.z - 10))
-            ]}
-            scale={Math.max(0.15, 0.3 - index * 0.02)}
-          >
-            <sphereGeometry args={[1, 12, 12]} />
-            <meshPhysicalMaterial
-              color={isAlive ? '#1a4a1a' : '#444444'}
-              emissive={isAlive ? '#0a2a0a' : '#111111'}
-              emissiveIntensity={0.3}
-              metalness={0.1}
-              roughness={0.4}
-              clearcoat={0.7}
-              clearcoatRoughness={0.3}
-              envMapIntensity={1.8}
-            />
-          </mesh>
-        ))}
-      </group>
-    );
-  }
-
-  // Fallback procedural snake with enhanced materials
+  // Procedural snake with enhanced materials
   return (
     <group ref={groupRef}>
+      {/* Snake head */}
       <mesh position={[0, 0, 0]} castShadow receiveShadow>
         <sphereGeometry args={[0.35, 24, 24]} />
         <meshPhysicalMaterial
@@ -191,28 +65,40 @@ const SnakeModel: React.FC<AnimatedSnakeProps> = ({ segments, isAlive, direction
         />
       </mesh>
       
-      {/* Enhanced fallback body segments */}
+      {/* Enhanced lighting for the snake */}
+      {isAlive && (
+        <pointLight
+          position={[0, 0.3, 0]}
+          color="#00aa00"
+          intensity={0.6}
+          distance={4}
+          decay={2}
+        />
+      )}
+      
+      {/* Snake body segments for length visualization */}
       {segments.slice(1).map((segment, index) => (
         <mesh
-          key={`fallback-segment-${index}`}
+          key={`body-${index}`}
           position={[
-            Math.max(-9.5, Math.min(9.5, segment.x - segments[0].x)),
+            Math.max(-9.5, Math.min(9.5, segment.x - 10)),
             0.1,
-            Math.max(-9.5, Math.min(9.5, segment.z - segments[0].z))
+            Math.max(-9.5, Math.min(9.5, segment.z - 10))
           ]}
+          scale={Math.max(0.15, 0.3 - index * 0.02)}
           castShadow
           receiveShadow
         >
-          <sphereGeometry args={[Math.max(0.12, 0.28 - index * 0.015), 16, 16]} />
+          <sphereGeometry args={[1, 12, 12]} />
           <meshPhysicalMaterial
             color={isAlive ? '#1a4a1a' : '#444444'}
-            emissive={isAlive ? '#0a1a0a' : '#111111'}
-            emissiveIntensity={0.25}
+            emissive={isAlive ? '#0a2a0a' : '#111111'}
+            emissiveIntensity={0.3}
             metalness={0.1}
             roughness={0.4}
             clearcoat={0.7}
-            clearcoatRoughness={0.25}
-            envMapIntensity={1.5}
+            clearcoatRoughness={0.3}
+            envMapIntensity={1.8}
           />
         </mesh>
       ))}
