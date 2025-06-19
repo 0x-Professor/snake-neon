@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Environment, OrbitControls } from '@react-three/drei';
-import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import { useGameStore } from '../store/gameStore';
 import { GameHUD } from './GameHUD';
 import { StartScreen } from './StartScreen';
@@ -219,7 +218,7 @@ export const SnakeGame: React.FC = () => {
 
       <SoundManager3D />
 
-      {/* Enhanced 3D Canvas */}
+      {/* Simplified 3D Canvas without problematic post-processing */}
       <Canvas
         shadows
         camera={{ position: [0, 15, 15], fov: 50, near: 0.1, far: 1000 }}
@@ -239,12 +238,6 @@ export const SnakeGame: React.FC = () => {
         
         <AdvancedLighting />
         <Environment preset="sunset" />
-        
-        {/* Post-processing effects */}
-        <EffectComposer>
-          <Bloom intensity={0.5} luminanceThreshold={0.9} />
-          <Vignette eskil={false} offset={0.1} darkness={0.5} />
-        </EffectComposer>
         
         <RealisticEnvironment />
         

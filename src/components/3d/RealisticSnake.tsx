@@ -1,7 +1,7 @@
 
 import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { CatmullRomCurve3, Vector3, Mesh, TubeGeometry, MeshPhysicalMaterial, SphereGeometry, Group, TextureLoader, Vector2 } from 'three';
+import { Vector3, Mesh, MeshPhysicalMaterial, SphereGeometry, Group, Vector2 } from 'three';
 import { Position, Direction } from '../../store/gameStore';
 
 interface RealisticSnakeProps {
@@ -13,69 +13,26 @@ interface RealisticSnakeProps {
 export const RealisticSnake: React.FC<RealisticSnakeProps> = ({ segments, isAlive, direction = 'right' }) => {
   const snakeGroupRef = useRef<Group>(null);
   const headRef = useRef<Group>(null);
-  const bodyRef = useRef<Mesh>(null);
   const materialRef = useRef<MeshPhysicalMaterial>(null);
   const animationTime = useRef(0);
 
-  // Load textures for realistic scales
-  const textureLoader = new TextureLoader();
-  const scaleTexture = useMemo(() => {
-    try {
-      return textureLoader.load('/textures/snake-scales.jpg');
-    } catch (e) {
-      console.warn('Failed to load snake-scales.jpg, using fallback color');
-      return null;
-    }
-  }, []);
-  const normalTexture = useMemo(() => {
-    try {
-      return textureLoader.load('/textures/snake-scales-normal.jpg');
-    } catch (e) {
-      console.warn('Failed to load snake-scales-normal.jpg');
-      return null;
-    }
-  }, []);
-
-  // Create snake geometry with tapering and smooth curves
-  const { snakeCurve, headGeometry, bodyGeometry } = useMemo(() => {
+  // Create simplified snake geometry
+  const { headGeometry, bodySegments } = useMemo(() => {
     if (segments.length === 0) {
-      return { snakeCurve: null, headGeometry: null, bodyGeometry: null };
+      return { headGeometry: null, bodySegments: [] };
     }
-
-    // Map segments to world positions with slight vertical variation
-    const points = segments.map((segment, index) => new Vector3(
-      segment.x - 10,
-      0.1 + Math.sin(index * 0.2) * 0.03,
-      segment.z - 10
-    ));
-
-    // Create smooth interpolation points
-    const smoothPoints: Vector3[] = points.length === 1
-      ? [points[0], points[0].clone().add(new Vector3(0.1, 0, 0))]
-      : points.reduce<Vector3[]>((acc, curr, i) => {
-          acc.push(curr);
-          if (i < points.length - 1) {
-            acc.push(new Vector3().lerpVectors(curr, points[i + 1], 0.4));
-            acc.push(new Vector3().lerpVectors(curr, points[i + 1], 0.8));
-          }
-          return acc;
-        }, []).concat([points[points.length - 1]]);
-
-    const curve = new CatmullRomCurve3(smoothPoints, false, 'catmullrom', 0.3);
 
     // Head geometry: elongated sphere
-    const headGeo = new SphereGeometry(0.25, 32, 32, 0, Math.PI * 2, 0, Math.PI).scale(1.2, 1, 1);
+    const headGeo = new SphereGeometry(0.25, 16, 16).scale(1.2, 1, 1);
 
-    // Body geometry: tapered tube - fix the radius function
-    const bodyGeo = smoothPoints.length >= 2 ? new TubeGeometry(
-      curve,
-      Math.max(32, segments.length * 8),
-      0.18, // Use constant radius instead of function
-      16,
-      false
-    ) : null;
+    // Body segments: individual spheres
+    const bodySegs = segments.slice(1).map((segment, index) => ({
+      position: new Vector3(segment.x - 10, 0.1, segment.z - 10),
+      scale: Math.max(0.15, 0.22 - index * 0.01), // Taper towards tail
+      key: `segment-${index}-${segment.x}-${segment.z}`
+    }));
 
-    return { snakeCurve: curve, headGeometry: headGeo, bodyGeometry: bodyGeo };
+    return { headGeometry: headGeo, bodySegments: bodySegs };
   }, [segments]);
 
   // Material properties for realistic scales
@@ -87,12 +44,9 @@ export const RealisticSnake: React.FC<RealisticSnakeProps> = ({ segments, isAliv
     roughness: 0.25,
     clearcoat: 0.95,
     clearcoatRoughness: 0.15,
-    map: scaleTexture,
-    normalMap: normalTexture,
-    normalScale: new Vector2(0.5, 0.5),
     transparent: true,
     opacity: isAlive ? 1 : 0.6,
-  }), [isAlive, scaleTexture, normalTexture]);
+  }), [isAlive]);
 
   // Animate snake with slithering motion
   useFrame((state, delta) => {
@@ -103,11 +57,6 @@ export const RealisticSnake: React.FC<RealisticSnakeProps> = ({ segments, isAliv
       const targetRotation = { up: Math.PI / 2, down: -Math.PI / 2, left: Math.PI, right: 0 }[direction] || 0;
       headRef.current.rotation.y = targetRotation;
       headRef.current.rotation.z = Math.sin(animationTime.current * 3.5) * 0.1;
-    }
-
-    if (bodyRef.current && isAlive) {
-      bodyRef.current.position.y = 0.1 + Math.sin(animationTime.current * 2 + 1) * 0.015;
-      bodyRef.current.rotation.z = Math.sin(animationTime.current * 2.5) * 0.08;
     }
 
     if (materialRef.current && isAlive) {
@@ -132,11 +81,11 @@ export const RealisticSnake: React.FC<RealisticSnakeProps> = ({ segments, isAliv
         </mesh>
         {/* Eyes */}
         <mesh position={[0.18, 0.05, 0.08]}>
-          <sphereGeometry args={[0.03, 16, 16]} />
+          <sphereGeometry args={[0.03, 8, 8]} />
           <meshStandardMaterial color="#000000" emissive="#ffffff" emissiveIntensity={0.6} />
         </mesh>
         <mesh position={[0.18, 0.05, -0.08]}>
-          <sphereGeometry args={[0.03, 16, 16]} />
+          <sphereGeometry args={[0.03, 8, 8]} />
           <meshStandardMaterial color="#000000" emissive="#ffffff" emissiveIntensity={0.6} />
         </mesh>
         {/* Tongue */}
@@ -152,12 +101,13 @@ export const RealisticSnake: React.FC<RealisticSnakeProps> = ({ segments, isAliv
         )}
       </group>
 
-      {/* Snake Body */}
-      {bodyGeometry && segments.length > 1 && (
-        <mesh ref={bodyRef} geometry={bodyGeometry}>
+      {/* Snake Body - Individual Segments */}
+      {bodySegments.map((segment) => (
+        <mesh key={segment.key} position={segment.position} scale={segment.scale}>
+          <sphereGeometry args={[1, 12, 12]} />
           <meshPhysicalMaterial {...materialProps} emissiveIntensity={materialProps.emissiveIntensity * 0.8} />
         </mesh>
-      )}
+      ))}
 
       {/* Tail Glow */}
       {isAlive && segments.length > 3 && (
