@@ -19,7 +19,7 @@ interface GLTFSnakeProps {
 
 export const GLTFSnake: React.FC<GLTFSnakeProps> = ({ segments, isAlive, direction }) => {
   const groupRef = useRef<Group>(null);
-  const gltfGroupRef = useRef<THREE.Group>(null);
+  const gltfGroupRef = useRef<Group>(null);
   const [gltfLoaded, setGltfLoaded] = useState(false);
   const animationTime = useRef(0);
 
@@ -106,7 +106,9 @@ export const GLTFSnake: React.FC<GLTFSnakeProps> = ({ segments, isAlive, directi
           ref={gltfGroupRef}
           scale={isAlive ? [0.3, 0.3, 0.3] : [0.25, 0.25, 0.25]}
         >
-          <primitive object={gltf.scene.clone()} />
+          <group>
+            <primitive object={gltf.scene.clone()} />
+          </group>
         </group>
       )}
       

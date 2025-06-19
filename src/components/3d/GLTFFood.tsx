@@ -2,7 +2,7 @@
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
-import { Mesh, Vector3 } from 'three';
+import { Mesh, Vector3, Group } from 'three';
 import { Food } from '../../store/gameStore';
 
 interface GLTFFoodProps {
@@ -46,7 +46,7 @@ const FALLBACK_FOODS = [
 
 export const GLTFFood: React.FC<GLTFFoodProps> = ({ food, onEaten }) => {
   const meshRef = useRef<Mesh>(null);
-  const gltfGroupRef = useRef<THREE.Group>(null);
+  const gltfGroupRef = useRef<Group>(null);
   const [hovered, setHovered] = useState(false);
   const animationTime = useRef(0);
 
@@ -113,7 +113,9 @@ export const GLTFFood: React.FC<GLTFFoodProps> = ({ food, onEaten }) => {
           onPointerOut={handlePointerLeave}
           scale={[0.2, 0.2, 0.2]}
         >
-          <primitive object={gltf.scene.clone()} />
+          <group>
+            <primitive object={gltf.scene.clone()} />
+          </group>
         </group>
       ) : (
         <mesh
