@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { Environment, OrbitControls, Bloom, EffectComposer, Vignette } from '@react-three/drei';
+import { Canvas } from '@react-three/fiber';
+import { Environment, OrbitControls } from '@react-three/drei';
+import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import { useGameStore } from '../store/gameStore';
 import { GameHUD } from './GameHUD';
 import { StartScreen } from './StartScreen';

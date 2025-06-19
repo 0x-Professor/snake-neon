@@ -1,8 +1,8 @@
 
 import React, { useRef, useState, useEffect, useMemo } from 'react';
-import { useFrame, useLoader } from '@react-three/fiber';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
-import { Mesh, Vector3, AnimationMixer } from 'three';
+import { useFrame } from '@react-three/fiber';
+import { useGLTF } from '@react-three/drei';
+import { Mesh, Vector3 } from 'three';
 import { Food } from '../../store/gameStore';
 
 interface GLTFFoodProps {
@@ -46,8 +46,6 @@ const FALLBACK_FOODS = [
 
 export const GLTFFood: React.FC<GLTFFoodProps> = ({ food, onEaten }) => {
   const meshRef = useRef<Mesh>(null);
-  const mixerRef = useRef<AnimationMixer>();
-  const [gltf, setGltf] = useState<any>(null);
   const [hovered, setHovered] = useState(false);
   const animationTime = useRef(0);
 
@@ -59,39 +57,17 @@ export const GLTFFood: React.FC<GLTFFoodProps> = ({ food, onEaten }) => {
   const selectedFood = FALLBACK_FOODS[foodIndex];
   const modelKey = Object.keys(FOOD_MODELS)[foodIndex] as keyof typeof FOOD_MODELS;
 
-  // Try to load GLTF model
-  useEffect(() => {
-    const loader = new GLTFLoader();
-    const modelUrl = FOOD_MODELS[modelKey];
-    
-    loader.load(
-      modelUrl,
-      (gltfModel) => {
-        console.log(`GLTF food model loaded: ${modelKey}`);
-        setGltf(gltfModel);
-        
-        if (gltfModel.animations.length > 0) {
-          const mixer = new AnimationMixer(gltfModel.scene);
-          mixerRef.current = mixer;
-          
-          const action = mixer.clipAction(gltfModel.animations[0]);
-          action.play();
-        }
-      },
-      undefined,
-      (error) => {
-        console.warn(`Failed to load food model ${modelKey}:`, error);
-        setGltf(null);
-      }
-    );
-  }, [modelKey]);
+  // Try to load GLTF model with fallback
+  let gltf;
+  try {
+    gltf = useGLTF(FOOD_MODELS[modelKey]);
+  } catch (error) {
+    console.warn(`Failed to load food model ${modelKey}:`, error);
+    gltf = null;
+  }
 
   useFrame((state, delta) => {
     animationTime.current += delta;
-    
-    if (mixerRef.current) {
-      mixerRef.current.update(delta);
-    }
     
     if (meshRef.current) {
       // Floating animation

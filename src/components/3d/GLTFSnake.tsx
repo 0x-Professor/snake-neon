@@ -1,16 +1,11 @@
 
 import React, { useRef, useEffect, useState, useMemo } from 'react';
-import { useFrame, useLoader } from '@react-three/fiber';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { useFrame } from '@react-three/fiber';
+import { useGLTF, useAnimations } from '@react-three/drei';
 import { 
   Group, 
-  AnimationMixer, 
-  AnimationAction, 
   CatmullRomCurve3, 
   Vector3,
-  QuaternionKeyframeTrack,
-  VectorKeyframeTrack,
-  AnimationClip,
   Quaternion,
   Euler
 } from 'three';
@@ -24,10 +19,21 @@ interface GLTFSnakeProps {
 
 export const GLTFSnake: React.FC<GLTFSnakeProps> = ({ segments, isAlive, direction }) => {
   const groupRef = useRef<Group>(null);
-  const mixerRef = useRef<AnimationMixer>();
-  const actionRef = useRef<AnimationAction>();
-  const [gltf, setGltf] = useState<any>(null);
+  const [gltfLoaded, setGltfLoaded] = useState(false);
   const animationTime = useRef(0);
+
+  // Try to load GLTF model with fallback
+  let gltf, actions;
+  try {
+    gltf = useGLTF('/models/snake.glb');
+    const animationsResult = useAnimations(gltf.animations, groupRef);
+    actions = animationsResult.actions;
+    setGltfLoaded(true);
+  } catch (error) {
+    console.warn('Failed to load snake GLTF model:', error);
+    gltf = null;
+    actions = null;
+  }
 
   // Create fallback snake geometry if GLTF fails to load
   const fallbackSnake = useMemo(() => {
@@ -45,57 +51,20 @@ export const GLTFSnake: React.FC<GLTFSnakeProps> = ({ segments, isAlive, directi
     return null;
   }, [segments]);
 
-  // Try to load GLTF model with fallback
+  // Setup animations
   useEffect(() => {
-    const loader = new GLTFLoader();
-    
-    // Try multiple potential snake model URLs
-    const modelUrls = [
-      '/models/snake.glb',
-      '/models/snake.gltf',
-      'https://threejs.org/examples/models/gltf/Horse.glb', // Fallback animal model
-    ];
-
-    const tryLoadModel = async (urls: string[], index = 0): Promise<void> => {
-      if (index >= urls.length) {
-        console.warn('No GLTF models could be loaded, using procedural snake');
-        return;
+    if (actions && gltfLoaded) {
+      // Play the first animation if available
+      const actionNames = Object.keys(actions);
+      if (actionNames.length > 0 && actions[actionNames[0]]) {
+        actions[actionNames[0]].play();
       }
-
-      try {
-        const gltfModel = await new Promise((resolve, reject) => {
-          loader.load(urls[index], resolve, undefined, reject);
-        });
-        
-        console.log('GLTF model loaded successfully:', urls[index]);
-        setGltf(gltfModel);
-        
-        // Setup animation mixer
-        if (gltfModel.animations.length > 0) {
-          const mixer = new AnimationMixer(gltfModel.scene);
-          mixerRef.current = mixer;
-          
-          // Play the first animation (idle/movement)
-          const action = mixer.clipAction(gltfModel.animations[0]);
-          action.play();
-          actionRef.current = action;
-        }
-      } catch (error) {
-        console.warn(`Failed to load model ${urls[index]}:`, error);
-        tryLoadModel(urls, index + 1);
-      }
-    };
-
-    tryLoadModel(modelUrls);
-  }, []);
+    }
+  }, [actions, gltfLoaded]);
 
   // Animate the snake
   useFrame((state, delta) => {
     animationTime.current += delta;
-
-    if (mixerRef.current) {
-      mixerRef.current.update(delta);
-    }
 
     if (groupRef.current && segments.length > 0) {
       const headPos = segments[0];
@@ -129,7 +98,7 @@ export const GLTFSnake: React.FC<GLTFSnakeProps> = ({ segments, isAlive, directi
   return (
     <group ref={groupRef}>
       {/* GLTF Model */}
-      {gltf && (
+      {gltf && gltfLoaded && (
         <primitive 
           object={gltf.scene.clone()} 
           scale={isAlive ? [0.3, 0.3, 0.3] : [0.25, 0.25, 0.25]}
@@ -138,7 +107,7 @@ export const GLTFSnake: React.FC<GLTFSnakeProps> = ({ segments, isAlive, directi
       )}
       
       {/* Fallback procedural snake if GLTF fails */}
-      {!gltf && fallbackSnake && (
+      {(!gltf || !gltfLoaded) && (
         <>
           {/* Snake Head */}
           <mesh position={[0, 0, 0]}>
