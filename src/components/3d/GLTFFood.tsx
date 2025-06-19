@@ -1,5 +1,5 @@
 
-import React, { useRef, useState, useMemo, Suspense } from 'react';
+import React, { useRef, useState, useMemo, Suspense, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import { Mesh, Vector3, Group } from 'three';
@@ -12,10 +12,10 @@ interface GLTFFoodProps {
 
 // Updated food models from provided links
 const FOOD_MODELS = {
-  apple: '/models/apple.glb', // From Sketchfab apple model
-  cheese: '/models/cheese.glb', // From Sketchfab cheese model
-  frog: '/models/frog.glb', // From Sketchfab frog model
-  egg: '/models/egg.glb' // From Sketchfab egg model
+  apple: '/models/apple.glb',
+  cheese: '/models/cheese.glb', 
+  frog: '/models/frog.glb',
+  egg: '/models/egg.glb'
 };
 
 const FALLBACK_FOODS = [
@@ -49,31 +49,48 @@ const FALLBACK_FOODS = [
   }
 ];
 
-const FoodModel: React.FC<{ modelPath: string; fallback: any; scale: number; position: Vector3; onClick: () => void; onHover: (hovered: boolean) => void }> = ({ 
-  modelPath, 
-  fallback, 
-  scale, 
-  position, 
-  onClick, 
-  onHover 
-}) => {
+const FoodModel: React.FC<{ 
+  modelPath: string; 
+  fallback: any; 
+  scale: number; 
+  position: Vector3; 
+  onClick: () => void; 
+  onHover: (hovered: boolean) => void 
+}> = ({ modelPath, fallback, scale, position, onClick, onHover }) => {
   const gltfGroupRef = useRef<Group>(null);
   const fallbackRef = useRef<Mesh>(null);
   const [loadError, setLoadError] = useState(false);
+  const [gltfData, setGltfData] = useState<any>(null);
   
-  let gltf;
-  try {
-    gltf = useGLTF(modelPath);
-  } catch (error) {
-    console.warn(`Failed to load food model ${modelPath}:`, error);
-    setLoadError(true);
-  }
+  // Load GLTF with proper error handling
+  useEffect(() => {
+    let cancelled = false;
+    
+    const loadModel = async () => {
+      try {
+        const gltf = await useGLTF.preload(modelPath);
+        if (!cancelled) {
+          setGltfData(gltf);
+        }
+      } catch (error) {
+        console.warn(`Failed to load food model ${modelPath}:`, error);
+        if (!cancelled) {
+          setLoadError(true);
+        }
+      }
+    };
+    
+    loadModel();
+    
+    return () => {
+      cancelled = true;
+    };
+  }, [modelPath]);
 
   const clonedScene = useMemo(() => {
-    if (gltf && gltf.scene && !loadError) {
+    if (gltfData && gltfData.scene && !loadError) {
       try {
-        const scene = gltf.scene.clone();
-        // Apply PBR materials enhancement
+        const scene = gltfData.scene.clone();
         scene.traverse((child) => {
           if (child.isMesh && child.material) {
             child.material.envMapIntensity = 1.5;
@@ -86,25 +103,19 @@ const FoodModel: React.FC<{ modelPath: string; fallback: any; scale: number; pos
         return scene;
       } catch (error) {
         console.warn('Failed to clone GLTF scene:', error);
-        setLoadError(true);
         return null;
       }
     }
     return null;
-  }, [gltf, loadError]);
+  }, [gltfData, loadError]);
 
   useFrame((state, delta) => {
     const targetRef = clonedScene ? gltfGroupRef : fallbackRef;
     
     if (targetRef.current) {
-      // Floating animation
       const floatHeight = position.y + Math.sin(state.clock.elapsedTime * 2 + position.x * 0.5) * 0.1;
       targetRef.current.position.y = floatHeight;
-      
-      // Rotation
       targetRef.current.rotation.y += delta;
-      
-      // Pulsing for power food
       const basePulse = 1 + Math.sin(state.clock.elapsedTime * 4) * 0.1;
       targetRef.current.scale.setScalar(scale * basePulse);
     }
@@ -125,7 +136,6 @@ const FoodModel: React.FC<{ modelPath: string; fallback: any; scale: number; pos
     );
   }
 
-  // Fallback to procedural geometry
   return (
     <mesh
       ref={fallbackRef}
@@ -154,7 +164,6 @@ const FoodModel: React.FC<{ modelPath: string; fallback: any; scale: number; pos
 export const GLTFFood: React.FC<GLTFFoodProps> = ({ food, onEaten }) => {
   const [hovered, setHovered] = useState(false);
 
-  // Select food type based on position (deterministic)
   const foodIndex = useMemo(() => {
     return (food.x + food.z * 20) % FALLBACK_FOODS.length;
   }, [food.x, food.z]);
@@ -188,7 +197,6 @@ export const GLTFFood: React.FC<GLTFFoodProps> = ({ food, onEaten }) => {
         />
       </Suspense>
       
-      {/* Enhanced glow effect with better PBR */}
       <pointLight
         position={[food.x - 10, 0.5, food.z - 10]}
         color={selectedFood.color}
@@ -198,23 +206,18 @@ export const GLTFFood: React.FC<GLTFFoodProps> = ({ food, onEaten }) => {
         castShadow
       />
 
-      {/* Additional visual effects for power food */}
       {food.type === 'power' && (
-        <>
-          {/* Energy field */}
-          <mesh position={[food.x - 10, 0.3, food.z - 10]}>
-            <sphereGeometry args={[0.4, 16, 16]} />
-            <meshBasicMaterial 
-              color={selectedFood.color} 
-              transparent 
-              opacity={0.1}
-              wireframe
-            />
-          </mesh>
-        </>
+        <mesh position={[food.x - 10, 0.3, food.z - 10]}>
+          <sphereGeometry args={[0.4, 16, 16]} />
+          <meshBasicMaterial 
+            color={selectedFood.color} 
+            transparent 
+            opacity={0.1}
+            wireframe
+          />
+        </mesh>
       )}
       
-      {/* Ground shadow for realism */}
       <mesh 
         position={[food.x - 10, 0.01, food.z - 10]} 
         rotation={[-Math.PI / 2, 0, 0]}

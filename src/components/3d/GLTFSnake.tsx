@@ -19,24 +19,40 @@ const SnakeModel: React.FC<{ segments: Position[]; isAlive: boolean; direction: 
   const groupRef = useRef<Group>(null);
   const gltfGroupRef = useRef<Group>(null);
   const [loadError, setLoadError] = useState(false);
+  const [gltfData, setGltfData] = useState<any>(null);
   const animationTime = useRef(0);
 
-  // Load the realistic snake model from Sketchfab
-  let gltf, actions;
-  try {
-    gltf = useGLTF('/models/snake.glb'); // From provided Sketchfab link
-    const animationsResult = useAnimations(gltf.animations, gltfGroupRef);
-    actions = animationsResult.actions;
-  } catch (error) {
-    console.warn('Failed to load snake GLTF model:', error);
-    setLoadError(true);
-  }
+  // Load GLTF with proper error handling
+  useEffect(() => {
+    let cancelled = false;
+    
+    const loadModel = async () => {
+      try {
+        const gltf = await useGLTF.preload('/models/snake.glb');
+        if (!cancelled) {
+          setGltfData(gltf);
+        }
+      } catch (error) {
+        console.warn('Failed to load snake GLTF model:', error);
+        if (!cancelled) {
+          setLoadError(true);
+        }
+      }
+    };
+    
+    loadModel();
+    
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const { actions } = useAnimations(gltfData?.animations || [], gltfGroupRef);
 
   const clonedScene = useMemo(() => {
-    if (gltf && gltf.scene && !loadError) {
+    if (gltfData && gltfData.scene && !loadError) {
       try {
-        const scene = gltf.scene.clone();
-        // Apply PBR materials and shadows
+        const scene = gltfData.scene.clone();
         scene.traverse((child) => {
           if (child.isMesh) {
             child.castShadow = true;
@@ -51,14 +67,12 @@ const SnakeModel: React.FC<{ segments: Position[]; isAlive: boolean; direction: 
         return scene;
       } catch (error) {
         console.warn('Failed to clone snake GLTF scene:', error);
-        setLoadError(true);
         return null;
       }
     }
     return null;
-  }, [gltf, loadError]);
+  }, [gltfData, loadError]);
 
-  // Setup animations
   useEffect(() => {
     if (actions && clonedScene && isAlive) {
       const actionNames = Object.keys(actions);
@@ -77,7 +91,6 @@ const SnakeModel: React.FC<{ segments: Position[]; isAlive: boolean; direction: 
       
       groupRef.current.position.copy(worldHeadPos);
       
-      // Rotate based on direction
       const rotationMap: Record<Direction, number> = {
         right: 0,
         down: Math.PI / 2,
@@ -87,12 +100,10 @@ const SnakeModel: React.FC<{ segments: Position[]; isAlive: boolean; direction: 
       
       groupRef.current.rotation.y = rotationMap[direction];
       
-      // Add realistic movement animations
       if (isAlive) {
         groupRef.current.position.y += Math.sin(animationTime.current * 6) * 0.02;
         groupRef.current.rotation.z = Math.sin(animationTime.current * 3) * 0.03;
       } else {
-        // Death animation - fall and fade
         groupRef.current.rotation.x = Math.PI / 2;
       }
     }
@@ -108,7 +119,6 @@ const SnakeModel: React.FC<{ segments: Position[]; isAlive: boolean; direction: 
           <primitive object={clonedScene} />
         </group>
         
-        {/* Snake head glow */}
         {isAlive && (
           <pointLight
             position={[0, 0.2, 0]}
@@ -122,10 +132,9 @@ const SnakeModel: React.FC<{ segments: Position[]; isAlive: boolean; direction: 
     );
   }
 
-  // Fallback procedural snake if GLTF fails
+  // Fallback procedural snake
   return (
     <group ref={groupRef}>
-      {/* Enhanced Snake Head */}
       <mesh position={[0, 0, 0]} castShadow receiveShadow>
         <sphereGeometry args={[0.3, 20, 20]} />
         <meshPhysicalMaterial
@@ -140,7 +149,6 @@ const SnakeModel: React.FC<{ segments: Position[]; isAlive: boolean; direction: 
         />
       </mesh>
       
-      {/* Snake Body Segments with improved materials */}
       {segments.slice(1).map((segment, index) => (
         <mesh
           key={`segment-${index}`}
@@ -162,7 +170,6 @@ const SnakeModel: React.FC<{ segments: Position[]; isAlive: boolean; direction: 
         </mesh>
       ))}
       
-      {/* Enhanced Eyes */}
       <mesh position={[0.2, 0.1, 0.1]} castShadow>
         <sphereGeometry args={[0.04, 12, 12]} />
         <meshPhysicalMaterial 
@@ -184,7 +191,6 @@ const SnakeModel: React.FC<{ segments: Position[]; isAlive: boolean; direction: 
         />
       </mesh>
       
-      {/* Animated Tongue */}
       {isAlive && (
         <mesh 
           position={[0.3, 0, 0]} 
