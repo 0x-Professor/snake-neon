@@ -98,7 +98,7 @@ export const GLTFSnake: React.FC<GLTFSnakeProps> = ({ segments, isAlive, directi
   return (
     <group ref={groupRef}>
       {/* GLTF Model */}
-      {gltf && gltfLoaded && (
+      {gltf && gltfLoaded && gltf.scene && (
         <primitive 
           object={gltf.scene.clone()} 
           scale={isAlive ? [0.3, 0.3, 0.3] : [0.25, 0.25, 0.25]}
@@ -107,7 +107,7 @@ export const GLTFSnake: React.FC<GLTFSnakeProps> = ({ segments, isAlive, directi
       )}
       
       {/* Fallback procedural snake if GLTF fails */}
-      {(!gltf || !gltfLoaded) && (
+      {(!gltf || !gltfLoaded || !gltf.scene) && (
         <>
           {/* Snake Head */}
           <mesh position={[0, 0, 0]}>

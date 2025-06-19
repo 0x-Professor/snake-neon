@@ -106,7 +106,7 @@ export const GLTFFood: React.FC<GLTFFoodProps> = ({ food, onEaten }) => {
         onPointerOver={handlePointerEnter}
         onPointerOut={handlePointerLeave}
       >
-        {gltf ? (
+        {gltf && gltf.scene ? (
           <primitive 
             object={gltf.scene.clone()} 
             scale={[0.2, 0.2, 0.2]}
