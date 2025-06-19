@@ -6,13 +6,13 @@ import { GameHUD } from './GameHUD';
 import { StartScreen } from './StartScreen';
 import { SettingsPanel } from './SettingsPanel';
 import { Leaderboard } from './Leaderboard';
-import { RealisticSnake } from './3d/RealisticSnake';
-import { RealisticFood } from './3d/RealisticFood';
+import { GLTFSnake } from './3d/GLTFSnake';
+import { GLTFFood } from './3d/GLTFFood';
 import { ParticleEffects } from './3d/ParticleEffects';
-import { AdvancedLighting } from './3d/AdvancedLighting';
+import { EnhancedLighting } from './3d/EnhancedLighting';
 import { RealisticEnvironment } from './3d/RealisticEnvironment';
 import { SoundManager3D } from './3d/SoundManager3D';
-import { EnhancedCameraController } from './3d/EnhancedCameraController';
+import { StaticCamera } from './3d/StaticCamera';
 import { Vector3 } from 'three';
 
 export const SnakeGame: React.FC = () => {
@@ -44,7 +44,6 @@ export const SnakeGame: React.FC = () => {
     active: boolean;
   }>>([]);
   const [cameraShake, setCameraShake] = useState(false);
-  const [cameraMode, setCameraMode] = useState<'follow' | 'overview' | 'cinematic'>('follow');
   const [orbitControlsEnabled, setOrbitControlsEnabled] = useState(false);
 
   useEffect(() => {
@@ -99,12 +98,6 @@ export const SnakeGame: React.FC = () => {
           event.preventDefault();
           pauseGame();
           return;
-        case 'c':
-          // Cycle camera modes
-          const modes: Array<'follow' | 'overview' | 'cinematic'> = ['follow', 'overview', 'cinematic'];
-          const currentIndex = modes.indexOf(cameraMode);
-          setCameraMode(modes[(currentIndex + 1) % modes.length]);
-          return;
         case 'o':
           setOrbitControlsEnabled(!orbitControlsEnabled);
           return;
@@ -116,7 +109,7 @@ export const SnakeGame: React.FC = () => {
 
       event.preventDefault();
     },
-    [gameState, direction, moveSnake, pauseGame, resetGame, showSettings, showLeaderboard, toggleSettings, toggleLeaderboard, cameraMode, orbitControlsEnabled]
+    [gameState, direction, moveSnake, pauseGame, resetGame, showSettings, showLeaderboard, toggleSettings, toggleLeaderboard, orbitControlsEnabled]
   );
 
   useEffect(() => {
@@ -218,37 +211,39 @@ export const SnakeGame: React.FC = () => {
 
       <SoundManager3D />
 
-      {/* Simplified 3D Canvas without problematic post-processing */}
+      {/* Enhanced 3D Canvas with static camera */}
       <Canvas
         shadows
-        camera={{ position: [0, 15, 15], fov: 50, near: 0.1, far: 1000 }}
+        camera={{ position: [0, 25, 20], fov: 60, near: 0.1, far: 1000 }}
         className="absolute inset-0"
       >
         {orbitControlsEnabled ? (
-          <OrbitControls enablePan enableZoom enableRotate />
+          <OrbitControls 
+            enablePan={true} 
+            enableZoom={true} 
+            enableRotate={true}
+            target={[0, 0, 0]}
+          />
         ) : (
-          <EnhancedCameraController
+          <StaticCamera 
             snakeHead={snake[0] || { x: 10, z: 10 }}
-            direction={direction}
-            gameState={gameState}
             shake={cameraShake}
-            mode={cameraMode}
           />
         )}
         
-        <AdvancedLighting />
+        <EnhancedLighting />
         <Environment preset="sunset" />
         
         <RealisticEnvironment />
         
-        <RealisticSnake
+        <GLTFSnake
           segments={snake}
           isAlive={gameState === 'playing'}
           direction={direction}
         />
         
         {food.map((item, i) => (
-          <RealisticFood
+          <GLTFFood
             key={`food-${i}-${item.x}-${item.z}`}
             food={item}
             onEaten={handleFoodEaten}
@@ -265,40 +260,49 @@ export const SnakeGame: React.FC = () => {
         ))}
       </Canvas>
 
-      {/* Enhanced HUD and UI */}
+      {/* Enhanced UI with better layout */}
       <div className="absolute inset-0 pointer-events-none">
         <GameHUD />
         
-        {/* Control Panel */}
-        <div className="absolute top-4 right-4 pointer-events-auto space-y-2">
-          <button
-            onClick={() => setCameraMode(cameraMode === 'follow' ? 'overview' : cameraMode === 'overview' ? 'cinematic' : 'follow')}
-            className="block w-full px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg hover:from-cyan-500 hover:to-blue-500 transition-all duration-200 text-sm"
-          >
-            Camera: {cameraMode.charAt(0).toUpperCase() + cameraMode.slice(1)}
-          </button>
-          <button
-            onClick={() => setOrbitControlsEnabled(!orbitControlsEnabled)}
-            className="block w-full px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-500 hover:to-pink-500 transition-all duration-200 text-sm"
-          >
-            {orbitControlsEnabled ? 'Free Cam ON' : 'Free Cam OFF'}
-          </button>
-          <button
-            onClick={() => resetGame()}
-            className="block w-full px-4 py-2 bg-gradient-to-r from-red-600 to-orange-600 text-white rounded-lg hover:from-red-500 hover:to-orange-500 transition-all duration-200 text-sm"
-          >
-            Home (H)
-          </button>
+        {/* Control Panel - Fixed Grid Layout */}
+        <div className="absolute top-4 right-4 pointer-events-auto">
+          <div className="grid grid-cols-1 gap-3 min-w-[140px]">
+            <button
+              onClick={() => setOrbitControlsEnabled(!orbitControlsEnabled)}
+              className="flex items-center justify-center px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-500 hover:to-pink-500 transition-all duration-200 text-sm font-medium shadow-lg"
+            >
+              <span className="mr-2">🎥</span>
+              {orbitControlsEnabled ? 'Free Cam' : 'Static Cam'}
+            </button>
+            <button
+              onClick={() => pauseGame()}
+              className="flex items-center justify-center px-4 py-3 bg-gradient-to-r from-yellow-600 to-orange-600 text-white rounded-lg hover:from-yellow-500 hover:to-orange-500 transition-all duration-200 text-sm font-medium shadow-lg"
+            >
+              <span className="mr-2">{gameState === 'paused' ? '▶️' : '⏸️'}</span>
+              {gameState === 'paused' ? 'Resume' : 'Pause'}
+            </button>
+            <button
+              onClick={() => resetGame()}
+              className="flex items-center justify-center px-4 py-3 bg-gradient-to-r from-red-600 to-orange-600 text-white rounded-lg hover:from-red-500 hover:to-orange-500 transition-all duration-200 text-sm font-medium shadow-lg"
+            >
+              <span className="mr-2">🏠</span>
+              Home
+            </button>
+          </div>
         </div>
         
-        {/* Game Controls Info */}
-        <div className="absolute bottom-4 left-4 pointer-events-none text-cyan-300 text-xs space-y-1">
-          <div>WASD/Arrows: Move</div>
-          <div>SPACE: Pause</div>
-          <div>C: Camera Mode</div>
-          <div>O: Orbit Controls</div>
-          <div>H: Home</div>
-          <div>ESC: Back/Pause</div>
+        {/* Game Controls Info - Better positioning */}
+        <div className="absolute bottom-4 left-4 pointer-events-none">
+          <div className="bg-black/40 backdrop-blur-md border border-cyan-500/30 rounded-lg p-3">
+            <div className="text-cyan-300 text-xs space-y-1">
+              <div className="font-semibold text-cyan-400 mb-2">CONTROLS</div>
+              <div>WASD/Arrows: Move</div>
+              <div>SPACE: Pause</div>
+              <div>O: Toggle Camera</div>
+              <div>H: Home</div>
+              <div>ESC: Back/Pause</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -360,11 +364,13 @@ export const SnakeGame: React.FC = () => {
       {/* Game Status Overlays */}
       {gameState === 'playing' && (
         <div className="absolute top-4 left-4 pointer-events-none">
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-            <span className="text-green-400 font-mono text-sm">
-              REALISTIC MODE ACTIVE
-            </span>
+          <div className="bg-black/40 backdrop-blur-md border border-green-500/30 rounded-lg p-3">
+            <div className="flex items-center space-x-2">
+              <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+              <span className="text-green-400 font-mono text-sm font-semibold">
+                REALISTIC MODE ACTIVE
+              </span>
+            </div>
           </div>
         </div>
       )}
