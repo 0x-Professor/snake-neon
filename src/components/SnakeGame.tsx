@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { Environment } from '@react-three/drei';
 import { useGameStore } from '../store/gameStore';
 import { GameHUD } from './GameHUD';
