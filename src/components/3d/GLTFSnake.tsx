@@ -38,6 +38,19 @@ export const GLTFSnake: React.FC<GLTFSnakeProps> = ({ segments, isAlive, directi
 
   const hasValidGLTF = gltf && gltfLoaded && gltf.scene && gltf.scene.children.length > 0;
 
+  // Create a cloned scene for safe rendering
+  const clonedScene = useMemo(() => {
+    if (hasValidGLTF) {
+      try {
+        return gltf.scene.clone();
+      } catch (error) {
+        console.warn('Failed to clone GLTF scene:', error);
+        return null;
+      }
+    }
+    return null;
+  }, [hasValidGLTF, gltf]);
+
   // Create fallback snake geometry if GLTF fails to load
   const fallbackSnake = useMemo(() => {
     if (segments.length === 0) return null;
@@ -56,14 +69,14 @@ export const GLTFSnake: React.FC<GLTFSnakeProps> = ({ segments, isAlive, directi
 
   // Setup animations
   useEffect(() => {
-    if (actions && hasValidGLTF) {
+    if (actions && clonedScene) {
       // Play the first animation if available
       const actionNames = Object.keys(actions);
       if (actionNames.length > 0 && actions[actionNames[0]]) {
         actions[actionNames[0]].play();
       }
     }
-  }, [actions, hasValidGLTF]);
+  }, [actions, clonedScene]);
 
   // Animate the snake
   useFrame((state, delta) => {
@@ -101,19 +114,17 @@ export const GLTFSnake: React.FC<GLTFSnakeProps> = ({ segments, isAlive, directi
   return (
     <group ref={groupRef}>
       {/* GLTF Model */}
-      {hasValidGLTF && (
+      {clonedScene && (
         <group
           ref={gltfGroupRef}
           scale={isAlive ? [0.3, 0.3, 0.3] : [0.25, 0.25, 0.25]}
         >
-          {gltf.scene.children.map((child, index) => (
-            <primitive key={index} object={child} />
-          ))}
+          <primitive object={clonedScene} />
         </group>
       )}
       
       {/* Fallback procedural snake if GLTF fails */}
-      {!hasValidGLTF && (
+      {!clonedScene && (
         <>
           {/* Snake Head */}
           <mesh position={[0, 0, 0]}>

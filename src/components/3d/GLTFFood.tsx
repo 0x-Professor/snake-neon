@@ -69,10 +69,23 @@ export const GLTFFood: React.FC<GLTFFoodProps> = ({ food, onEaten }) => {
 
   const hasValidGLTF = gltf && gltf.scene && gltf.scene.children.length > 0;
 
+  // Create a cloned scene for safe rendering
+  const clonedScene = useMemo(() => {
+    if (hasValidGLTF) {
+      try {
+        return gltf.scene.clone();
+      } catch (error) {
+        console.warn('Failed to clone GLTF scene:', error);
+        return null;
+      }
+    }
+    return null;
+  }, [hasValidGLTF, gltf]);
+
   useFrame((state, delta) => {
     animationTime.current += delta;
     
-    const targetRef = hasValidGLTF ? gltfGroupRef : meshRef;
+    const targetRef = clonedScene ? gltfGroupRef : meshRef;
     
     if (targetRef.current) {
       // Floating animation
@@ -105,7 +118,7 @@ export const GLTFFood: React.FC<GLTFFoodProps> = ({ food, onEaten }) => {
 
   return (
     <group position={[food.x - 10, 0, food.z - 10]}>
-      {hasValidGLTF ? (
+      {clonedScene ? (
         <group
           ref={gltfGroupRef}
           onClick={handleClick}
@@ -113,9 +126,7 @@ export const GLTFFood: React.FC<GLTFFoodProps> = ({ food, onEaten }) => {
           onPointerOut={handlePointerLeave}
           scale={[0.2, 0.2, 0.2]}
         >
-          {gltf.scene.children.map((child, index) => (
-            <primitive key={index} object={child} />
-          ))}
+          <primitive object={clonedScene} />
         </group>
       ) : (
         <mesh
