@@ -26,11 +26,11 @@ const SnakeModel: React.FC<AnimatedSnakeProps> = ({ segments, isAlive, direction
       try {
         // Using a fallback snake model URL - in production, replace with your Sketchfab URL
         const gltf = await useGLTF.preload('/models/snake.glb');
-        if (!cancelled) {
+        if (!cancelled && gltf) {
           setGltfData(gltf);
           
           // Setup animation mixer
-          if (gltf.animations && gltf.animations.length > 0) {
+          if (gltf.animations && gltf.animations.length > 0 && gltf.scene) {
             const mixer = new AnimationMixer(gltf.scene);
             mixerRef.current = mixer;
             

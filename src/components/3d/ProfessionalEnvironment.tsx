@@ -97,10 +97,10 @@ export const ProfessionalEnvironment: React.FC = () => {
 
       {/* Enhanced boundary walls with professional glow */}
       {[
-        { pos: [0, 1, -GRID_SIZE/2 - 0.5], size: [GRID_SIZE + 1, 2, 1] },
-        { pos: [0, 1, GRID_SIZE/2 + 0.5], size: [GRID_SIZE + 1, 2, 1] },
-        { pos: [-GRID_SIZE/2 - 0.5, 1, 0], size: [1, 2, GRID_SIZE] },
-        { pos: [GRID_SIZE/2 + 0.5, 1, 0], size: [1, 2, GRID_SIZE] }
+        { pos: [0, 1, -GRID_SIZE/2 - 0.5] as [number, number, number], size: [GRID_SIZE + 1, 2, 1] as [number, number, number] },
+        { pos: [0, 1, GRID_SIZE/2 + 0.5] as [number, number, number], size: [GRID_SIZE + 1, 2, 1] as [number, number, number] },
+        { pos: [-GRID_SIZE/2 - 0.5, 1, 0] as [number, number, number], size: [1, 2, GRID_SIZE] as [number, number, number] },
+        { pos: [GRID_SIZE/2 + 0.5, 1, 0] as [number, number, number], size: [1, 2, GRID_SIZE] as [number, number, number] }
       ].map((wall, index) => (
         <group key={`wall-${index}`}>
           <mesh position={wall.pos} castShadow>
@@ -148,10 +148,10 @@ export const ProfessionalEnvironment: React.FC = () => {
       
       {/* Corner accent lights for depth */}
       {[
-        [-GRID_SIZE/2, 3, -GRID_SIZE/2],
-        [GRID_SIZE/2, 3, -GRID_SIZE/2],
-        [-GRID_SIZE/2, 3, GRID_SIZE/2],
-        [GRID_SIZE/2, 3, GRID_SIZE/2]
+        [-GRID_SIZE/2, 3, -GRID_SIZE/2] as [number, number, number],
+        [GRID_SIZE/2, 3, -GRID_SIZE/2] as [number, number, number],
+        [-GRID_SIZE/2, 3, GRID_SIZE/2] as [number, number, number],
+        [GRID_SIZE/2, 3, GRID_SIZE/2] as [number, number, number]
       ].map((pos, i) => (
         <pointLight
           key={`corner-${i}`}
