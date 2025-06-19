@@ -12,7 +12,7 @@ import { ParticleEffects } from './3d/ParticleEffects';
 import { AdvancedLighting } from './3d/AdvancedLighting';
 import { RealisticEnvironment } from './3d/RealisticEnvironment';
 import { SoundManager3D } from './3d/SoundManager3D';
-import { Vector3, PerspectiveCamera } from 'three';
+import { Vector3 } from 'three';
 
 export const SnakeGame: React.FC = () => {
   const {
@@ -42,7 +42,6 @@ export const SnakeGame: React.FC = () => {
   }>>([]);
   const [cameraShake, setCameraShake] = useState(false);
   const [realisticMode, setRealisticMode] = useState(true);
-  const cameraRef = useRef<PerspectiveCamera>(null);
 
   useEffect(() => {
     setIsInitialized(true);
@@ -156,25 +155,28 @@ export const SnakeGame: React.FC = () => {
     if (gameState === 'gameOver') handleCollision();
   }, [gameState, handleCollision]);
 
-  // Dynamic camera
-  useFrame(({ camera }) => {
-    if (cameraRef.current && snake[0]) {
-      const headPos = new Vector3(snake[0].x - 10, 0.3, snake[0].z - 10);
-      const offset = new Vector3(0, realisticMode ? 5 : 10, realisticMode ? 8 : 12);
-      const targetPos = headPos.clone().add(offset);
-      cameraRef.current.position.lerp(targetPos, 0.1);
-      cameraRef.current.lookAt(headPos);
-      if (cameraShake) {
-        cameraRef.current.position.add(
-          new Vector3(
-            Math.random() * 0.2 - 0.1,
-            Math.random() * 0.2 - 0.1,
-            Math.random() * 0.2 - 0.1
-          )
-        );
+  // Camera animation component
+  const CameraController = () => {
+    useFrame(({ camera }) => {
+      if (snake[0]) {
+        const headPos = new Vector3(snake[0].x - 10, 0.3, snake[0].z - 10);
+        const offset = new Vector3(0, realisticMode ? 5 : 10, realisticMode ? 8 : 12);
+        const targetPos = headPos.clone().add(offset);
+        camera.position.lerp(targetPos, 0.1);
+        camera.lookAt(headPos);
+        if (cameraShake) {
+          camera.position.add(
+            new Vector3(
+              Math.random() * 0.2 - 0.1,
+              Math.random() * 0.2 - 0.1,
+              Math.random() * 0.2 - 0.1
+            )
+          );
+        }
       }
-    }
-  });
+    });
+    return null;
+  };
 
   if (showSettings) return <SettingsPanel />;
   if (showLeaderboard) return <Leaderboard />;
@@ -213,16 +215,16 @@ export const SnakeGame: React.FC = () => {
       {/* 3D Canvas */}
       <Canvas
         shadows
-        camera={{ position: [0, 10, 15], fov: 50, near: 0.1, far: 1000, ref: cameraRef }}
+        camera={{ position: [0, 10, 15], fov: 50, near: 0.1, far: 1000 }}
         className="absolute inset-0"
         gl={{
           antialias: true,
           alpha: false,
           powerPreference: 'high-performance',
-          shadowMap: { enabled: true, type: 2 },
         }}
       >
-        <AdvancedLighting intensity={realisticMode ? 1.2 : 1} />
+        <CameraController />
+        <AdvancedLighting />
         <Environment preset="sunset" />
         <RealisticEnvironment realisticMode={realisticMode} />
         <RealisticSnake

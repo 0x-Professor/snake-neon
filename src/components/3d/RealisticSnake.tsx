@@ -1,3 +1,4 @@
+
 import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { CatmullRomCurve3, Vector3, Mesh, TubeGeometry, MeshPhysicalMaterial, SphereGeometry, Group, TextureLoader, Vector2 } from 'three';
@@ -11,7 +12,7 @@ interface RealisticSnakeProps {
 
 export const RealisticSnake: React.FC<RealisticSnakeProps> = ({ segments, isAlive, direction = 'right' }) => {
   const snakeGroupRef = useRef<Group>(null);
-  const headRef = useRef<Mesh>(null);
+  const headRef = useRef<Group>(null);
   const bodyRef = useRef<Mesh>(null);
   const materialRef = useRef<MeshPhysicalMaterial>(null);
   const animationTime = useRef(0);
@@ -65,11 +66,11 @@ export const RealisticSnake: React.FC<RealisticSnakeProps> = ({ segments, isAliv
     // Head geometry: elongated sphere
     const headGeo = new SphereGeometry(0.25, 32, 32, 0, Math.PI * 2, 0, Math.PI).scale(1.2, 1, 1);
 
-    // Body geometry: tapered tube
+    // Body geometry: tapered tube - fix the radius function
     const bodyGeo = smoothPoints.length >= 2 ? new TubeGeometry(
       curve,
       Math.max(32, segments.length * 8),
-      (t: number) => 0.18 * (1 - t * 0.6),
+      0.18, // Use constant radius instead of function
       16,
       false
     ) : null;
@@ -88,7 +89,7 @@ export const RealisticSnake: React.FC<RealisticSnakeProps> = ({ segments, isAliv
     clearcoatRoughness: 0.15,
     map: scaleTexture,
     normalMap: normalTexture,
-    normalScale: new Vector2(0.5, 0.5), // Changed to Vector2
+    normalScale: new Vector2(0.5, 0.5),
     transparent: true,
     opacity: isAlive ? 1 : 0.6,
   }), [isAlive, scaleTexture, normalTexture]);

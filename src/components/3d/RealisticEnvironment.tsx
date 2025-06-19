@@ -3,7 +3,11 @@ import React from 'react';
 
 const GRID_SIZE = 20;
 
-export const RealisticEnvironment: React.FC = () => {
+interface RealisticEnvironmentProps {
+  realisticMode?: boolean;
+}
+
+export const RealisticEnvironment: React.FC<RealisticEnvironmentProps> = ({ realisticMode = true }) => {
   return (
     <>
       {/* Main game board - professional cyber aesthetic */}
@@ -26,7 +30,7 @@ export const RealisticEnvironment: React.FC = () => {
           {/* Vertical lines */}
           <mesh position={[i - GRID_SIZE/2, 0.01, 0]}>
             <planeGeometry args={[0.05, GRID_SIZE]} />
-            <meshBasicMaterial 
+            <meshStandardMaterial 
               color="#00ffff" 
               transparent 
               opacity={0.3}
@@ -37,7 +41,7 @@ export const RealisticEnvironment: React.FC = () => {
           {/* Horizontal lines */}
           <mesh position={[0, 0.01, i - GRID_SIZE/2]} rotation={[0, Math.PI/2, 0]}>
             <planeGeometry args={[0.05, GRID_SIZE]} />
-            <meshBasicMaterial 
+            <meshStandardMaterial 
               color="#00ffff" 
               transparent 
               opacity={0.3}
