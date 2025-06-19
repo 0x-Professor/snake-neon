@@ -4,6 +4,7 @@ import { useFrame } from '@react-three/fiber';
 import { useGLTF, useAnimations } from '@react-three/drei';
 import { Group, Vector3, AnimationMixer } from 'three';
 import { Position, Direction } from '../../store/gameStore';
+import { GLTF } from 'three-stdlib';
 
 interface AnimatedSnakeProps {
   segments: Position[];
@@ -11,62 +12,53 @@ interface AnimatedSnakeProps {
   direction: Direction;
 }
 
+type SnakeGLTF = GLTF & {
+  nodes: any;
+  materials: any;
+};
+
 const SnakeModel: React.FC<AnimatedSnakeProps> = ({ segments, isAlive, direction }) => {
   const groupRef = useRef<Group>(null);
   const gltfGroupRef = useRef<Group>(null);
   const [loadError, setLoadError] = useState(false);
-  const [gltfData, setGltfData] = useState<any>(null);
   const mixerRef = useRef<AnimationMixer | null>(null);
 
   // Load GLTF model with enhanced error handling
+  const { scene, animations } = useGLTF('/models/snake.glb', true) as SnakeGLTF;
+
+  // Setup animation mixer when animations are available
   useEffect(() => {
-    let cancelled = false;
-    
-    const loadModel = async () => {
+    if (animations && animations.length > 0 && scene) {
       try {
-        // Using a fallback snake model URL - in production, replace with your Sketchfab URL
-        const gltf = await useGLTF.preload('/models/snake.glb');
-        if (!cancelled && gltf) {
-          setGltfData(gltf);
-          
-          // Setup animation mixer
-          if (gltf.animations && gltf.animations.length > 0 && gltf.scene) {
-            const mixer = new AnimationMixer(gltf.scene);
-            mixerRef.current = mixer;
-            
-            // Play all animations
-            gltf.animations.forEach(clip => {
-              const action = mixer.clipAction(clip);
-              action.play();
-            });
-          }
-        }
+        const mixer = new AnimationMixer(scene);
+        mixerRef.current = mixer;
+        
+        // Play all animations
+        animations.forEach(clip => {
+          const action = mixer.clipAction(clip);
+          action.play();
+        });
       } catch (error) {
-        console.warn('Failed to load snake GLTF:', error);
-        if (!cancelled) {
-          setLoadError(true);
-        }
+        console.warn('Failed to setup animation mixer:', error);
+        setLoadError(true);
       }
-    };
-    
-    loadModel();
+    }
     
     return () => {
-      cancelled = true;
       if (mixerRef.current) {
         mixerRef.current.stopAllAction();
       }
     };
-  }, []);
+  }, [animations, scene]);
 
-  const { actions } = useAnimations(gltfData?.animations || [], gltfGroupRef);
+  const { actions } = useAnimations(animations || [], gltfGroupRef);
 
   // Enhanced snake scene with PBR materials
   const clonedScene = useMemo(() => {
-    if (gltfData && gltfData.scene && !loadError) {
+    if (scene && !loadError) {
       try {
-        const scene = gltfData.scene.clone();
-        scene.traverse((child) => {
+        const clonedScene = scene.clone();
+        clonedScene.traverse((child) => {
           if (child.isMesh) {
             child.castShadow = true;
             child.receiveShadow = true;
@@ -80,14 +72,15 @@ const SnakeModel: React.FC<AnimatedSnakeProps> = ({ segments, isAlive, direction
             }
           }
         });
-        return scene;
+        return clonedScene;
       } catch (error) {
         console.warn('Failed to clone snake scene:', error);
+        setLoadError(true);
         return null;
       }
     }
     return null;
-  }, [gltfData, loadError]);
+  }, [scene, loadError]);
 
   // Animation loop with boundary checks
   useFrame((state, delta) => {
