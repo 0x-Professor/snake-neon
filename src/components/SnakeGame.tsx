@@ -73,12 +73,6 @@ export const SnakeGame: React.FC = () => {
         return;
       }
 
-      if (key === 'c') {
-        setCameraMode(prev => prev === 'third-person' ? 'first-person' : 'third-person');
-        event.preventDefault();
-        return;
-      }
-
       if (gameState !== 'playing') return;
 
       let newDirection = direction;
@@ -227,21 +221,19 @@ export const SnakeGame: React.FC = () => {
 
       <SoundManager3D />
 
-      {/* Professional 3D Canvas with enhanced camera */}
+      {/* Enhanced 3D Canvas with static camera */}
       <Canvas
         shadows
-        camera={{ position: [0, 15, 12], fov: 65, near: 0.1, far: 1000 }}
+        camera={{ position: [0, 25, 15], fov: 60, near: 0.1, far: 1000 }}
         className="absolute inset-0"
       >
         <Suspense fallback={null}>
-          <CameraController 
+          <StaticCamera 
             snakeHead={snake[0] || { x: 10, z: 10 }}
-            mode={cameraMode}
             shake={cameraShake}
-            zoom={cameraZoom}
           />
           
-          <ProfessionalEnvironment />
+          <ElegantEnvironment />
           
           {/* Single snake instance with score-based speed */}
           <AnimatedSnake
@@ -252,8 +244,8 @@ export const SnakeGame: React.FC = () => {
           />
           
           {food.map((item, i) => (
-            <GLTFFood
-              key={`food-${i}-${item.x}-${item.z}`}
+            <RealisticFruit
+              key={`fruit-${i}-${item.x}-${item.z}`}
               food={item}
               onEaten={handleFoodEaten}
             />
@@ -270,21 +262,13 @@ export const SnakeGame: React.FC = () => {
         </Suspense>
       </Canvas>
 
-      {/* Enhanced UI with CSS Grid Layout */}
+      {/* Enhanced UI with static camera controls removed */}
       <div className="absolute inset-0 pointer-events-none">
         <GameHUD />
         
-        {/* Professional Control Panel - Responsive Grid */}
+        {/* Simplified Control Panel */}
         <div className="absolute top-4 right-4 pointer-events-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 w-full max-w-sm">
-            <button
-              onClick={() => setCameraMode(prev => prev === 'third-person' ? 'first-person' : 'third-person')}
-              className="flex items-center justify-center px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-500 hover:to-purple-500 transition-all duration-300 text-sm font-medium shadow-lg transform hover:scale-105"
-            >
-              <span className="mr-2">📷</span>
-              {cameraMode === 'third-person' ? '3rd Person' : '1st Person'}
-            </button>
-            
             <button
               onClick={handlePauseToggle}
               className="flex items-center justify-center px-4 py-3 bg-gradient-to-r from-yellow-600 to-orange-600 text-white rounded-lg hover:from-yellow-500 hover:to-orange-500 transition-all duration-300 text-sm font-medium shadow-lg transform hover:scale-105"
@@ -300,19 +284,6 @@ export const SnakeGame: React.FC = () => {
               <span className="mr-2">🏠</span>
               Home
             </button>
-            
-            <div className="flex flex-col gap-1">
-              <label className="text-xs text-cyan-300 font-medium">Zoom</label>
-              <input
-                type="range"
-                min="-2"
-                max="3"
-                step="0.1"
-                value={cameraZoom}
-                onChange={(e) => setCameraZoom(parseFloat(e.target.value))}
-                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
-              />
-            </div>
           </div>
         </div>
         
