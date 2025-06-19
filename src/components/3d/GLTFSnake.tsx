@@ -36,7 +36,7 @@ export const GLTFSnake: React.FC<GLTFSnakeProps> = ({ segments, isAlive, directi
     actions = null;
   }
 
-  const hasValidGLTF = gltf && gltfLoaded && gltf.scene;
+  const hasValidGLTF = gltf && gltfLoaded && gltf.scene && gltf.scene.children.length > 0;
 
   // Create fallback snake geometry if GLTF fails to load
   const fallbackSnake = useMemo(() => {
@@ -106,9 +106,9 @@ export const GLTFSnake: React.FC<GLTFSnakeProps> = ({ segments, isAlive, directi
           ref={gltfGroupRef}
           scale={isAlive ? [0.3, 0.3, 0.3] : [0.25, 0.25, 0.25]}
         >
-          <group>
-            <primitive object={gltf.scene.clone()} />
-          </group>
+          {gltf.scene.children.map((child, index) => (
+            <primitive key={index} object={child} />
+          ))}
         </group>
       )}
       

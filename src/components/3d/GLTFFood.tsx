@@ -67,7 +67,7 @@ export const GLTFFood: React.FC<GLTFFoodProps> = ({ food, onEaten }) => {
     gltf = null;
   }
 
-  const hasValidGLTF = gltf && gltf.scene;
+  const hasValidGLTF = gltf && gltf.scene && gltf.scene.children.length > 0;
 
   useFrame((state, delta) => {
     animationTime.current += delta;
@@ -113,9 +113,9 @@ export const GLTFFood: React.FC<GLTFFoodProps> = ({ food, onEaten }) => {
           onPointerOut={handlePointerLeave}
           scale={[0.2, 0.2, 0.2]}
         >
-          <group>
-            <primitive object={gltf.scene.clone()} />
-          </group>
+          {gltf.scene.children.map((child, index) => (
+            <primitive key={index} object={child} />
+          ))}
         </group>
       ) : (
         <mesh
