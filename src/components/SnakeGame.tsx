@@ -18,24 +18,27 @@ import { RealisticFruit } from './3d/RealisticFruit';
 import { Vector3 } from 'three';
 
 export const SnakeGame: React.FC = () => {
-  // Individual selectors to prevent object recreation
-  const gameState = useGameStore(state => state.gameState);
-  const snake = useGameStore(state => state.snake);
-  const food = useGameStore(state => state.food);
-  const score = useGameStore(state => state.score);
-  const direction = useGameStore(state => state.direction);
-  const settings = useGameStore(state => state.settings);
-  const showSettings = useGameStore(state => state.showSettings);
-  const showLeaderboard = useGameStore(state => state.showLeaderboard);
+  console.log('SnakeGame render');
 
-  // Individual action selectors
-  const moveSnake = useGameStore(state => state.moveSnake);
-  const pauseGame = useGameStore(state => state.pauseGame);
-  const resetGame = useGameStore(state => state.resetGame);
-  const updateGame = useGameStore(state => state.updateGame);
-  const startGame = useGameStore(state => state.startGame);
-  const toggleSettings = useGameStore(state => state.toggleSettings);
-  const toggleLeaderboard = useGameStore(state => state.toggleLeaderboard);
+  // Stable store selectors with shallow equality
+  const store = useGameStore();
+  const gameState = store.gameState;
+  const snake = store.snake;
+  const food = store.food;
+  const score = store.score;
+  const direction = store.direction;
+  const settings = store.settings;
+  const showSettings = store.showSettings;
+  const showLeaderboard = store.showLeaderboard;
+
+  // Stable action references
+  const moveSnakeAction = store.moveSnake;
+  const pauseGameAction = store.pauseGame;
+  const resetGameAction = store.resetGame;
+  const updateGameAction = store.updateGame;
+  const startGameAction = store.startGame;
+  const toggleSettingsAction = store.toggleSettings;
+  const toggleLeaderboardAction = store.toggleLeaderboard;
 
   const gameLoopRef = useRef<number>();
   const lastUpdateRef = useRef<number>(0);
@@ -52,20 +55,23 @@ export const SnakeGame: React.FC = () => {
   const [cameraShake, setCameraShake] = useState(false);
 
   useEffect(() => {
+    console.log('Setting initialized');
     setIsInitialized(true);
   }, []);
 
+  // Stable key handler with minimal dependencies
   const handleKeyPress = useCallback(
     (event: KeyboardEvent) => {
+      console.log('Key pressed:', event.key, 'Game state:', gameState);
       const key = event.key.toLowerCase();
       
       // Global controls
       if (key === 'escape') {
-        if (gameState === 'playing') pauseGame();
-        else if (gameState === 'paused') pauseGame();
+        if (gameState === 'playing') pauseGameAction();
+        else if (gameState === 'paused') pauseGameAction();
         else if (showSettings || showLeaderboard) {
-          toggleSettings();
-          toggleLeaderboard();
+          toggleSettingsAction();
+          toggleLeaderboardAction();
         }
         event.preventDefault();
         return;
@@ -73,7 +79,7 @@ export const SnakeGame: React.FC = () => {
       
       if (key === 'h') {
         if (gameState === 'menu') return;
-        resetGame();
+        resetGameAction();
         event.preventDefault();
         return;
       }
@@ -101,24 +107,39 @@ export const SnakeGame: React.FC = () => {
           break;
         case ' ':
           event.preventDefault();
-          pauseGame();
+          pauseGameAction();
           return;
       }
 
       if (newDirection !== direction) {
-        moveSnake(newDirection);
+        moveSnakeAction(newDirection);
       }
 
       event.preventDefault();
     },
-    [gameState, direction, showSettings, showLeaderboard, pauseGame, resetGame, moveSnake, toggleSettings, toggleLeaderboard]
+    [
+      gameState,
+      direction,
+      showSettings,
+      showLeaderboard,
+      pauseGameAction,
+      resetGameAction,
+      moveSnakeAction,
+      toggleSettingsAction,
+      toggleLeaderboardAction
+    ]
   );
 
   useEffect(() => {
+    console.log('Adding keydown listener');
     window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
+    return () => {
+      console.log('Removing keydown listener');
+      window.removeEventListener('keydown', handleKeyPress);
+    };
   }, [handleKeyPress]);
 
+  // Stable game loop with minimal dependencies
   const gameLoop = useCallback(
     (timestamp: number) => {
       if (gameState === 'playing') {
@@ -128,16 +149,17 @@ export const SnakeGame: React.FC = () => {
         const gameSpeed = Math.max(150, baseSpeed - settings.gameSpeed * 30 - speedIncrease);
         
         if (timestamp - lastUpdateRef.current > gameSpeed) {
-          updateGame();
+          updateGameAction();
           lastUpdateRef.current = timestamp;
         }
         gameLoopRef.current = requestAnimationFrame(gameLoop);
       }
     },
-    [gameState, score, settings.gameSpeed, updateGame]
+    [gameState, score, settings.gameSpeed, updateGameAction]
   );
 
   useEffect(() => {
+    console.log('Game loop effect, state:', gameState);
     if (gameState === 'playing') {
       lastUpdateRef.current = performance.now();
       gameLoopRef.current = requestAnimationFrame(gameLoop);
@@ -146,12 +168,15 @@ export const SnakeGame: React.FC = () => {
     }
 
     return () => {
-      if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
+      if (gameLoopRef.current) {
+        cancelAnimationFrame(gameLoopRef.current);
+      }
     };
   }, [gameState, gameLoop]);
 
   // Stable callback functions that don't cause re-renders
   const handleFoodEaten = useCallback(() => {
+    console.log('Food eaten');
     const newEffect = {
       id: Date.now().toString(),
       position: new Vector3(0, 0.3, 0),
@@ -166,6 +191,7 @@ export const SnakeGame: React.FC = () => {
   }, []);
 
   const handleCollision = useCallback(() => {
+    console.log('Collision detected');
     setCameraShake(true);
     const newEffect = {
       id: Date.now().toString(),
@@ -195,12 +221,15 @@ export const SnakeGame: React.FC = () => {
   }, [gameState]);
 
   const handlePauseToggle = useCallback(() => {
+    console.log('Pause toggle');
     if (gameState === 'playing') {
-      pauseGame();
+      pauseGameAction();
     } else if (gameState === 'paused') {
-      pauseGame();
+      pauseGameAction();
     }
-  }, [gameState, pauseGame]);
+  }, [gameState, pauseGameAction]);
+
+  console.log('About to render, states:', { gameState, showSettings, showLeaderboard, isInitialized });
 
   if (showSettings) return <SettingsPanel />;
   if (showLeaderboard) return <Leaderboard />;
@@ -217,6 +246,7 @@ export const SnakeGame: React.FC = () => {
 
   return (
     <div className="w-full h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black relative overflow-hidden">
+      {/* ... keep existing code (background effects) */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(120,119,198,0.1),rgba(255,255,255,0))]"></div>
         {Array.from({ length: 50 }).map((_, i) => (
@@ -275,6 +305,7 @@ export const SnakeGame: React.FC = () => {
         </Suspense>
       </Canvas>
 
+      {/* ... keep existing code (UI overlays and game state screens) */}
       <div className="absolute inset-0 pointer-events-none">
         <GameHUD />
         
@@ -289,7 +320,7 @@ export const SnakeGame: React.FC = () => {
             </button>
             
             <button
-              onClick={resetGame}
+              onClick={resetGameAction}
               className="flex items-center justify-center px-4 py-3 bg-gradient-to-r from-red-600 to-orange-600 text-white rounded-lg hover:from-red-500 hover:to-orange-500 transition-all duration-300 text-sm font-medium shadow-lg transform hover:scale-105"
             >
               <span className="mr-2">🏠</span>
@@ -331,7 +362,7 @@ export const SnakeGame: React.FC = () => {
           <button
             onTouchStart={(e) => {
               e.preventDefault();
-              if (direction !== 'down') moveSnake('up');
+              if (direction !== 'down') moveSnakeAction('up');
             }}
             className="w-12 h-12 bg-gradient-to-t from-cyan-600 to-cyan-400 border border-cyan-300 rounded-lg flex items-center justify-center backdrop-blur-md shadow-lg"
           >
@@ -341,7 +372,7 @@ export const SnakeGame: React.FC = () => {
           <button
             onTouchStart={(e) => {
               e.preventDefault();
-              if (direction !== 'right') moveSnake('left');
+              if (direction !== 'right') moveSnakeAction('left');
             }}
             className="w-12 h-12 bg-gradient-to-r from-cyan-600 to-cyan-400 border border-cyan-300 rounded-lg flex items-center justify-center backdrop-blur-md shadow-lg"
           >
@@ -359,7 +390,7 @@ export const SnakeGame: React.FC = () => {
           <button
             onTouchStart={(e) => {
               e.preventDefault();
-              if (direction !== 'left') moveSnake('right');
+              if (direction !== 'left') moveSnakeAction('right');
             }}
             className="w-12 h-12 bg-gradient-to-l from-cyan-600 to-cyan-400 border border-cyan-300 rounded-lg flex items-center justify-center backdrop-blur-md shadow-lg"
           >
@@ -369,7 +400,7 @@ export const SnakeGame: React.FC = () => {
           <button
             onTouchStart={(e) => {
               e.preventDefault();
-              if (direction !== 'up') moveSnake('down');
+              if (direction !== 'up') moveSnakeAction('down');
             }}
             className="w-12 h-12 bg-gradient-to-b from-cyan-600 to-cyan-400 border border-cyan-300 rounded-lg flex items-center justify-center backdrop-blur-md shadow-lg"
           >
@@ -396,19 +427,19 @@ export const SnakeGame: React.FC = () => {
             <div className="text-red-300 font-mono mb-6 text-xl">Final Score: {score}</div>
             <div className="flex flex-col gap-4">
               <button
-                onClick={() => startGame('classic')}
+                onClick={() => startGameAction('classic')}
                 className="w-full px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg hover:from-cyan-500 hover:to-blue-500 transition-all duration-200 font-bold"
               >
                 RESTART MISSION
               </button>
               <button
-                onClick={resetGame}
+                onClick={resetGameAction}
                 className="w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-500 hover:to-pink-500 transition-all duration-200 font-bold"
               >
                 RETURN HOME
               </button>
               <button
-                onClick={toggleLeaderboard}
+                onClick={toggleLeaderboardAction}
                 className="w-full px-6 py-3 bg-gradient-to-r from-yellow-600 to-orange-600 text-white rounded-lg hover:from-yellow-500 hover:to-orange-500 transition-all duration-200 font-bold"
               >
                 LEADERBOARD
