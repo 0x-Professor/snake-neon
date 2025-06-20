@@ -1,4 +1,3 @@
-
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Suspense } from 'react';
@@ -21,24 +20,24 @@ import { Vector3 } from 'three';
 export const SnakeGame: React.FC = () => {
   console.log('SnakeGame render');
 
-  // Get the entire store state in one go to prevent re-renders
-  const {
-    gameState,
-    snake,
-    food,
-    score,
-    direction,
-    settings,
-    showSettings,
-    showLeaderboard,
-    moveSnake,
-    pauseGame,
-    resetGame,
-    updateGame,
-    startGame,
-    toggleSettings,
-    toggleLeaderboard
-  } = useGameStore();
+  // Use individual selectors to prevent unnecessary re-renders
+  const gameState = useGameStore(state => state.gameState);
+  const snake = useGameStore(state => state.snake);
+  const food = useGameStore(state => state.food);
+  const score = useGameStore(state => state.score);
+  const direction = useGameStore(state => state.direction);
+  const settings = useGameStore(state => state.settings);
+  const showSettings = useGameStore(state => state.showSettings);
+  const showLeaderboard = useGameStore(state => state.showLeaderboard);
+  
+  // Actions
+  const moveSnake = useGameStore(state => state.moveSnake);
+  const pauseGame = useGameStore(state => state.pauseGame);
+  const resetGame = useGameStore(state => state.resetGame);
+  const updateGame = useGameStore(state => state.updateGame);
+  const startGame = useGameStore(state => state.startGame);
+  const toggleSettings = useGameStore(state => state.toggleSettings);
+  const toggleLeaderboard = useGameStore(state => state.toggleLeaderboard);
 
   const gameLoopRef = useRef<number>();
   const lastUpdateRef = useRef<number>(0);
@@ -59,30 +58,17 @@ export const SnakeGame: React.FC = () => {
     setIsInitialized(true);
   }, []);
 
-  // Stable key handler - using useRef to store the latest values
-  const gameStateRef = useRef(gameState);
-  const directionRef = useRef(direction);
-  const showSettingsRef = useRef(showSettings);
-  const showLeaderboardRef = useRef(showLeaderboard);
-
-  // Update refs when values change
-  useEffect(() => {
-    gameStateRef.current = gameState;
-    directionRef.current = direction;
-    showSettingsRef.current = showSettings;
-    showLeaderboardRef.current = showLeaderboard;
-  });
-
+  // Stable key handler with static dependencies
   const handleKeyPress = useCallback(
     (event: KeyboardEvent) => {
-      console.log('Key pressed:', event.key, 'Game state:', gameStateRef.current);
+      console.log('Key pressed:', event.key, 'Game state:', gameState);
       const key = event.key.toLowerCase();
       
       // Global controls
       if (key === 'escape') {
-        if (gameStateRef.current === 'playing') pauseGame();
-        else if (gameStateRef.current === 'paused') pauseGame();
-        else if (showSettingsRef.current || showLeaderboardRef.current) {
+        if (gameState === 'playing') pauseGame();
+        else if (gameState === 'paused') pauseGame();
+        else if (showSettings || showLeaderboard) {
           toggleSettings();
           toggleLeaderboard();
         }
@@ -91,32 +77,32 @@ export const SnakeGame: React.FC = () => {
       }
       
       if (key === 'h') {
-        if (gameStateRef.current === 'menu') return;
+        if (gameState === 'menu') return;
         resetGame();
         event.preventDefault();
         return;
       }
 
-      if (gameStateRef.current !== 'playing') return;
+      if (gameState !== 'playing') return;
 
-      let newDirection = directionRef.current;
+      let newDirection = direction;
 
       switch (key) {
         case 'arrowup':
         case 'w':
-          if (directionRef.current !== 'down') newDirection = 'up';
+          if (direction !== 'down') newDirection = 'up';
           break;
         case 'arrowdown':
         case 's':
-          if (directionRef.current !== 'up') newDirection = 'down';
+          if (direction !== 'up') newDirection = 'down';
           break;
         case 'arrowleft':
         case 'a':
-          if (directionRef.current !== 'right') newDirection = 'left';
+          if (direction !== 'right') newDirection = 'left';
           break;
         case 'arrowright':
         case 'd':
-          if (directionRef.current !== 'left') newDirection = 'right';
+          if (direction !== 'left') newDirection = 'right';
           break;
         case ' ':
           event.preventDefault();
@@ -124,13 +110,13 @@ export const SnakeGame: React.FC = () => {
           return;
       }
 
-      if (newDirection !== directionRef.current) {
+      if (newDirection !== direction) {
         moveSnake(newDirection);
       }
 
       event.preventDefault();
     },
-    [pauseGame, resetGame, moveSnake, toggleSettings, toggleLeaderboard]
+    [gameState, direction, showSettings, showLeaderboard, pauseGame, resetGame, moveSnake, toggleSettings, toggleLeaderboard]
   );
 
   useEffect(() => {
@@ -142,22 +128,14 @@ export const SnakeGame: React.FC = () => {
     };
   }, [handleKeyPress]);
 
-  // Game loop with refs to prevent re-creation
-  const scoreRef = useRef(score);
-  const settingsRef = useRef(settings);
-  
-  useEffect(() => {
-    scoreRef.current = score;
-    settingsRef.current = settings;
-  });
-
+  // Game loop
   const gameLoop = useCallback(
     (timestamp: number) => {
-      if (gameStateRef.current === 'playing') {
+      if (gameState === 'playing') {
         // Dynamic game speed based on score
         const baseSpeed = 400;
-        const speedIncrease = Math.floor(scoreRef.current / 50) * 20;
-        const gameSpeed = Math.max(150, baseSpeed - settingsRef.current.gameSpeed * 30 - speedIncrease);
+        const speedIncrease = Math.floor(score / 50) * 20;
+        const gameSpeed = Math.max(150, baseSpeed - settings.gameSpeed * 30 - speedIncrease);
         
         if (timestamp - lastUpdateRef.current > gameSpeed) {
           updateGame();
@@ -166,7 +144,7 @@ export const SnakeGame: React.FC = () => {
         gameLoopRef.current = requestAnimationFrame(gameLoop);
       }
     },
-    [updateGame]
+    [gameState, score, settings.gameSpeed, updateGame]
   );
 
   useEffect(() => {
@@ -233,12 +211,12 @@ export const SnakeGame: React.FC = () => {
 
   const handlePauseToggle = useCallback(() => {
     console.log('Pause toggle');
-    if (gameStateRef.current === 'playing') {
+    if (gameState === 'playing') {
       pauseGame();
-    } else if (gameStateRef.current === 'paused') {
+    } else if (gameState === 'paused') {
       pauseGame();
     }
-  }, [pauseGame]);
+  }, [gameState, pauseGame]);
 
   console.log('About to render, states:', { gameState, showSettings, showLeaderboard, isInitialized });
 
