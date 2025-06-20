@@ -40,15 +40,16 @@ export const SnakeGame: React.FC = () => {
   const gameLoopRef = useRef<number>();
   const lastUpdateRef = useRef<number>(0);
   const [isInitialized, setIsInitialized] = useState(false);
-  const [cameraMode, setCameraMode] = useState<'third-person' | 'first-person'>('third-person');
-  const [cameraZoom, setCameraZoom] = useState(0);
-  const [particleEffects, setParticleEffects] = useState<Array<{
+
+  // Stable refs for particle effects to prevent re-render loops
+  const particleEffectsRef = useRef<Array<{
     id: string;
     position: Vector3;
     type: 'eating' | 'collision' | 'trail';
     active: boolean;
   }>>([]);
-  const [cameraShake, setCameraShake] = useState(false);
+  const [, forceUpdate] = useState({});
+  const cameraShakeRef = useRef(false);
 
   useEffect(() => {
     setIsInitialized(true);
@@ -158,13 +159,18 @@ export const SnakeGame: React.FC = () => {
         type: 'eating' as const,
         active: true,
       };
-      setParticleEffects((prev) => prev.slice(-10).concat([newEffect]));
-      setTimeout(() => setParticleEffects((prev) => prev.filter((e) => e.id !== newEffect.id)), 1500);
+      particleEffectsRef.current = particleEffectsRef.current.slice(-10).concat([newEffect]);
+      forceUpdate({});
+      
+      setTimeout(() => {
+        particleEffectsRef.current = particleEffectsRef.current.filter((e) => e.id !== newEffect.id);
+        forceUpdate({});
+      }, 1500);
     }
   }, [snake]);
 
   const handleCollision = useCallback(() => {
-    setCameraShake(true);
+    cameraShakeRef.current = true;
     const headPos = snake[0];
     if (headPos) {
       const newEffect = {
@@ -173,9 +179,13 @@ export const SnakeGame: React.FC = () => {
         type: 'collision' as const,
         active: true,
       };
-      setParticleEffects((prev) => prev.slice(-10).concat([newEffect]));
+      particleEffectsRef.current = particleEffectsRef.current.slice(-10).concat([newEffect]);
+      forceUpdate({});
     }
-    setTimeout(() => setCameraShake(false), 400);
+    setTimeout(() => {
+      cameraShakeRef.current = false;
+      forceUpdate({});
+    }, 400);
   }, [snake]);
 
   useEffect(() => {
@@ -183,13 +193,13 @@ export const SnakeGame: React.FC = () => {
   }, [gameState, handleCollision]);
 
   // Working pause game function
-  const handlePauseToggle = () => {
+  const handlePauseToggle = useCallback(() => {
     if (gameState === 'playing') {
       pauseGame();
     } else if (gameState === 'paused') {
       pauseGame(); // This should resume the game
     }
-  };
+  }, [gameState, pauseGame]);
 
   if (showSettings) return <SettingsPanel />;
   if (showLeaderboard) return <Leaderboard />;
@@ -234,7 +244,7 @@ export const SnakeGame: React.FC = () => {
         <Suspense fallback={null}>
           <StaticCamera 
             snakeHead={snake[0] || { x: 10, z: 10 }}
-            shake={cameraShake}
+            shake={cameraShakeRef.current}
           />
           
           <ElegantEnvironment />
@@ -255,7 +265,7 @@ export const SnakeGame: React.FC = () => {
             />
           ))}
           
-          {particleEffects.map((effect) => (
+          {particleEffectsRef.current.map((effect) => (
             <ParticleEffects
               key={effect.id}
               position={effect.position}
@@ -282,7 +292,7 @@ export const SnakeGame: React.FC = () => {
             </button>
             
             <button
-              onClick={() => resetGame()}
+              onClick={resetGame}
               className="flex items-center justify-center px-4 py-3 bg-gradient-to-r from-red-600 to-orange-600 text-white rounded-lg hover:from-red-500 hover:to-orange-500 transition-all duration-300 text-sm font-medium shadow-lg transform hover:scale-105"
             >
               <span className="mr-2">🏠</span>
@@ -397,13 +407,13 @@ export const SnakeGame: React.FC = () => {
                 RESTART MISSION
               </button>
               <button
-                onClick={() => resetGame()}
+                onClick={resetGame}
                 className="w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-500 hover:to-pink-500 transition-all duration-200 font-bold"
               >
                 RETURN HOME
               </button>
               <button
-                onClick={() => toggleLeaderboard()}
+                onClick={toggleLeaderboard}
                 className="w-full px-6 py-3 bg-gradient-to-r from-yellow-600 to-orange-600 text-white rounded-lg hover:from-yellow-500 hover:to-orange-500 transition-all duration-200 font-bold"
               >
                 LEADERBOARD
