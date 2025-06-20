@@ -18,23 +18,17 @@ import { RealisticFruit } from './3d/RealisticFruit';
 import { Vector3 } from 'three';
 
 export const SnakeGame: React.FC = () => {
+  const store = useGameStore();
   const {
     gameState,
     snake,
     food,
     score,
     direction,
-    startGame,
-    pauseGame,
-    moveSnake,
-    updateGame,
     settings,
     showSettings,
     showLeaderboard,
-    resetGame,
-    toggleSettings,
-    toggleLeaderboard,
-  } = useGameStore();
+  } = store;
 
   const gameLoopRef = useRef<number>();
   const lastUpdateRef = useRef<number>(0);
@@ -60,11 +54,11 @@ export const SnakeGame: React.FC = () => {
       
       // Global controls
       if (key === 'escape') {
-        if (gameState === 'playing') pauseGame();
-        else if (gameState === 'paused') pauseGame();
+        if (gameState === 'playing') store.pauseGame();
+        else if (gameState === 'paused') store.pauseGame();
         else if (showSettings || showLeaderboard) {
-          toggleSettings();
-          toggleLeaderboard();
+          store.toggleSettings();
+          store.toggleLeaderboard();
         }
         event.preventDefault();
         return;
@@ -72,7 +66,7 @@ export const SnakeGame: React.FC = () => {
       
       if (key === 'h') {
         if (gameState === 'menu') return;
-        resetGame();
+        store.resetGame();
         event.preventDefault();
         return;
       }
@@ -100,17 +94,17 @@ export const SnakeGame: React.FC = () => {
           break;
         case ' ':
           event.preventDefault();
-          pauseGame();
+          store.pauseGame();
           return;
       }
 
       if (newDirection !== direction) {
-        moveSnake(newDirection);
+        store.moveSnake(newDirection);
       }
 
       event.preventDefault();
     },
-    [gameState, direction, moveSnake, pauseGame, resetGame, showSettings, showLeaderboard, toggleSettings, toggleLeaderboard]
+    [gameState, direction, showSettings, showLeaderboard] // Removed store functions
   );
 
   useEffect(() => {
@@ -127,13 +121,13 @@ export const SnakeGame: React.FC = () => {
         const gameSpeed = Math.max(150, baseSpeed - settings.gameSpeed * 30 - speedIncrease);
         
         if (timestamp - lastUpdateRef.current > gameSpeed) {
-          updateGame();
+          store.updateGame();
           lastUpdateRef.current = timestamp;
         }
         gameLoopRef.current = requestAnimationFrame(gameLoop);
       }
     },
-    [gameState, settings.gameSpeed, updateGame, score]
+    [gameState, settings.gameSpeed, score] // Removed store.updateGame
   );
 
   useEffect(() => {
@@ -151,10 +145,9 @@ export const SnakeGame: React.FC = () => {
 
   // Stable callback functions that don't cause re-renders
   const handleFoodEaten = useCallback(() => {
-    // Only add particle effect, don't access store state here
     const newEffect = {
       id: Date.now().toString(),
-      position: new Vector3(0, 0.3, 0), // Use a default position to avoid accessing store
+      position: new Vector3(0, 0.3, 0),
       type: 'eating' as const,
       active: true,
     };
@@ -163,13 +156,13 @@ export const SnakeGame: React.FC = () => {
     setTimeout(() => {
       setParticleEffects(prev => prev.filter((e) => e.id !== newEffect.id));
     }, 1500);
-  }, []); // Empty dependencies to make it stable
+  }, []);
 
   const handleCollision = useCallback(() => {
     setCameraShake(true);
     const newEffect = {
       id: Date.now().toString(),
-      position: new Vector3(0, 0.3, 0), // Use a default position
+      position: new Vector3(0, 0.3, 0),
       type: 'collision' as const,
       active: true,
     };
@@ -178,7 +171,7 @@ export const SnakeGame: React.FC = () => {
     setTimeout(() => {
       setCameraShake(false);
     }, 400);
-  }, []); // Empty dependencies to make it stable
+  }, []);
 
   // Reset game over flag when game starts
   useEffect(() => {
@@ -193,15 +186,15 @@ export const SnakeGame: React.FC = () => {
       gameOverHandledRef.current = true;
       handleCollision();
     }
-  }, [gameState]); // Removed handleCollision from dependencies
+  }, [gameState, handleCollision]);
 
   const handlePauseToggle = useCallback(() => {
     if (gameState === 'playing') {
-      pauseGame();
+      store.pauseGame();
     } else if (gameState === 'paused') {
-      pauseGame(); // This should resume the game
+      store.pauseGame(); // This should resume the game
     }
-  }, [gameState, pauseGame]);
+  }, [gameState]);
 
   if (showSettings) return <SettingsPanel />;
   if (showLeaderboard) return <Leaderboard />;
@@ -290,7 +283,7 @@ export const SnakeGame: React.FC = () => {
             </button>
             
             <button
-              onClick={resetGame}
+              onClick={store.resetGame}
               className="flex items-center justify-center px-4 py-3 bg-gradient-to-r from-red-600 to-orange-600 text-white rounded-lg hover:from-red-500 hover:to-orange-500 transition-all duration-300 text-sm font-medium shadow-lg transform hover:scale-105"
             >
               <span className="mr-2">🏠</span>
@@ -332,7 +325,7 @@ export const SnakeGame: React.FC = () => {
           <button
             onTouchStart={(e) => {
               e.preventDefault();
-              if (direction !== 'down') moveSnake('up');
+              if (direction !== 'down') store.moveSnake('up');
             }}
             className="w-12 h-12 bg-gradient-to-t from-cyan-600 to-cyan-400 border border-cyan-300 rounded-lg flex items-center justify-center backdrop-blur-md shadow-lg"
           >
@@ -342,7 +335,7 @@ export const SnakeGame: React.FC = () => {
           <button
             onTouchStart={(e) => {
               e.preventDefault();
-              if (direction !== 'right') moveSnake('left');
+              if (direction !== 'right') store.moveSnake('left');
             }}
             className="w-12 h-12 bg-gradient-to-r from-cyan-600 to-cyan-400 border border-cyan-300 rounded-lg flex items-center justify-center backdrop-blur-md shadow-lg"
           >
@@ -360,7 +353,7 @@ export const SnakeGame: React.FC = () => {
           <button
             onTouchStart={(e) => {
               e.preventDefault();
-              if (direction !== 'left') moveSnake('right');
+              if (direction !== 'left') store.moveSnake('right');
             }}
             className="w-12 h-12 bg-gradient-to-l from-cyan-600 to-cyan-400 border border-cyan-300 rounded-lg flex items-center justify-center backdrop-blur-md shadow-lg"
           >
@@ -370,7 +363,7 @@ export const SnakeGame: React.FC = () => {
           <button
             onTouchStart={(e) => {
               e.preventDefault();
-              if (direction !== 'up') moveSnake('down');
+              if (direction !== 'up') store.moveSnake('down');
             }}
             className="w-12 h-12 bg-gradient-to-b from-cyan-600 to-cyan-400 border border-cyan-300 rounded-lg flex items-center justify-center backdrop-blur-md shadow-lg"
           >
@@ -397,19 +390,19 @@ export const SnakeGame: React.FC = () => {
             <div className="text-red-300 font-mono mb-6 text-xl">Final Score: {score}</div>
             <div className="flex flex-col gap-4">
               <button
-                onClick={() => startGame('classic')}
+                onClick={() => store.startGame('classic')}
                 className="w-full px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg hover:from-cyan-500 hover:to-blue-500 transition-all duration-200 font-bold"
               >
                 RESTART MISSION
               </button>
               <button
-                onClick={resetGame}
+                onClick={store.resetGame}
                 className="w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-500 hover:to-pink-500 transition-all duration-200 font-bold"
               >
                 RETURN HOME
               </button>
               <button
-                onClick={toggleLeaderboard}
+                onClick={store.toggleLeaderboard}
                 className="w-full px-6 py-3 bg-gradient-to-r from-yellow-600 to-orange-600 text-white rounded-lg hover:from-yellow-500 hover:to-orange-500 transition-all duration-200 font-bold"
               >
                 LEADERBOARD
