@@ -1,4 +1,3 @@
-
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Suspense } from 'react';
@@ -40,6 +39,7 @@ export const SnakeGame: React.FC = () => {
   const gameLoopRef = useRef<number>();
   const lastUpdateRef = useRef<number>(0);
   const [isInitialized, setIsInitialized] = useState(false);
+  const gameOverHandledRef = useRef(false);
 
   // Simplified particle effects state - no more force updates
   const [particleEffects, setParticleEffects] = useState<Array<{
@@ -186,12 +186,20 @@ export const SnakeGame: React.FC = () => {
     }, 400);
   }, []);
 
-  // Only trigger collision effect when game actually ends
+  // Reset game over flag when game starts
   useEffect(() => {
-    if (gameState === 'gameOver') {
+    if (gameState === 'playing') {
+      gameOverHandledRef.current = false;
+    }
+  }, [gameState]);
+
+  // Only trigger collision effect when game actually ends - fixed to prevent infinite loop
+  useEffect(() => {
+    if (gameState === 'gameOver' && !gameOverHandledRef.current) {
+      gameOverHandledRef.current = true;
       handleCollision();
     }
-  }, [gameState, handleCollision]);
+  }, [gameState]); // Removed handleCollision from dependencies and added ref guard
 
   // Working pause game function
   const handlePauseToggle = useCallback(() => {
