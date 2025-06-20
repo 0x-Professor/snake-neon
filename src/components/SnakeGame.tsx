@@ -44,7 +44,7 @@ export const SnakeGame: React.FC = () => {
     setIsInitialized(true);
   }, []);
 
-  // Stable keyboard handler - no dependencies
+  // Stable keyboard handler with useCallback
   const handleKeyPress = useCallback((event: KeyboardEvent) => {
     console.log('Key pressed:', event.key);
     const key = event.key.toLowerCase();
@@ -97,9 +97,9 @@ export const SnakeGame: React.FC = () => {
     }
 
     event.preventDefault();
-  }, []); // Empty dependency array
+  }, []); // Empty dependency array - function is stable
 
-  // Keyboard setup
+  // Keyboard setup with stable dependency
   useEffect(() => {
     console.log('Setting up keyboard listeners');
     window.addEventListener('keydown', handleKeyPress);
@@ -109,7 +109,7 @@ export const SnakeGame: React.FC = () => {
     };
   }, [handleKeyPress]);
 
-  // Game loop - stable callback
+  // Stable game loop with useCallback
   const runGameLoop = useCallback(() => {
     const loop = (timestamp: number) => {
       const store = useGameStore.getState();
@@ -128,9 +128,9 @@ export const SnakeGame: React.FC = () => {
     
     lastUpdateRef.current = performance.now();
     gameLoopRef.current = requestAnimationFrame(loop);
-  }, []); // Empty dependency array
+  }, []); // Empty dependency array - function is stable
 
-  // Game loop management - only depend on gameState
+  // Game loop management with stable dependency
   useEffect(() => {
     console.log('Game loop effect, state:', gameState);
     
@@ -147,7 +147,7 @@ export const SnakeGame: React.FC = () => {
     };
   }, [gameState, runGameLoop]);
 
-  // Stable particle effect handler
+  // Stable particle effect handler with useCallback
   const addParticleEffect = useCallback((type: 'eating' | 'collision') => {
     const newEffect = {
       id: Date.now().toString(),
@@ -165,7 +165,7 @@ export const SnakeGame: React.FC = () => {
     setTimeout(() => {
       setParticleEffects(prev => prev.filter((e) => e.id !== newEffect.id));
     }, 1500);
-  }, []); // Empty dependency array
+  }, []); // Empty dependency array - function is stable
 
   // Early returns for different states
   if (showSettings) return <SettingsPanel />;
