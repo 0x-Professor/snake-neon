@@ -1,4 +1,3 @@
-
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Suspense } from 'react';
@@ -235,6 +234,18 @@ export const SnakeGame: React.FC = () => {
     }
   }, []);
 
+  const handleResetGame = useCallback(() => {
+    useGameStore.getState().resetGame();
+  }, []);
+
+  const handleStartGame = useCallback((mode: 'classic') => {
+    useGameStore.getState().startGame(mode);
+  }, []);
+
+  const handleToggleLeaderboard = useCallback(() => {
+    useGameStore.getState().toggleLeaderboard();
+  }, []);
+
   console.log('About to render, states:', { 
     gameState, 
     showSettings, 
@@ -257,7 +268,7 @@ export const SnakeGame: React.FC = () => {
 
   return (
     <div className="w-full h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black relative overflow-hidden">
-      {/* ... keep existing code (background effects) */}
+      {/* Background effects */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(120,119,198,0.1),rgba(255,255,255,0))]"></div>
         {Array.from({ length: 50 }).map((_, i) => (
@@ -316,7 +327,7 @@ export const SnakeGame: React.FC = () => {
         </Suspense>
       </Canvas>
 
-      {/* ... keep existing code (UI overlays and game state screens) */}
+      {/* UI overlays and game state screens */}
       <div className="absolute inset-0 pointer-events-none">
         <GameHUD />
         
@@ -331,7 +342,7 @@ export const SnakeGame: React.FC = () => {
             </button>
             
             <button
-              onClick={() => storeActions.current.resetGame()}
+              onClick={handleResetGame}
               className="flex items-center justify-center px-4 py-3 bg-gradient-to-r from-red-600 to-orange-600 text-white rounded-lg hover:from-red-500 hover:to-orange-500 transition-all duration-300 text-sm font-medium shadow-lg transform hover:scale-105"
             >
               <span className="mr-2">🏠</span>
@@ -442,19 +453,19 @@ export const SnakeGame: React.FC = () => {
             <div className="text-red-300 font-mono mb-6 text-xl">Final Score: {score}</div>
             <div className="flex flex-col gap-4">
               <button
-                onClick={() => storeActions.current.startGame('classic')}
+                onClick={() => handleStartGame('classic')}
                 className="w-full px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg hover:from-cyan-500 hover:to-blue-500 transition-all duration-200 font-bold"
               >
                 RESTART MISSION
               </button>
               <button
-                onClick={() => storeActions.current.resetGame()}
+                onClick={handleResetGame}
                 className="w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-500 hover:to-pink-500 transition-all duration-200 font-bold"
               >
                 RETURN HOME
               </button>
               <button
-                onClick={() => storeActions.current.toggleLeaderboard()}
+                onClick={handleToggleLeaderboard}
                 className="w-full px-6 py-3 bg-gradient-to-r from-yellow-600 to-orange-600 text-white rounded-lg hover:from-yellow-500 hover:to-orange-500 transition-all duration-200 font-bold"
               >
                 LEADERBOARD
