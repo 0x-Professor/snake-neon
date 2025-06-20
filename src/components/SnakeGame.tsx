@@ -198,12 +198,12 @@ export const SnakeGame: React.FC = () => {
     }, 400);
   }, []);
 
-  // Only trigger collision effect when game actually ends
+  // Only trigger collision effect when game actually ends - removed handleCollision from dependencies
   useEffect(() => {
     if (gameState === 'gameOver') {
       handleCollision();
     }
-  }, [gameState, handleCollision]);
+  }, [gameState]); // Removed handleCollision to prevent circular dependency
 
   // Working pause game function
   const handlePauseToggle = useCallback(() => {
