@@ -1,3 +1,4 @@
+
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Suspense } from 'react';
@@ -20,8 +21,40 @@ import { Vector3 } from 'three';
 export const SnakeGame: React.FC = () => {
   console.log('SnakeGame render');
 
-  // Single stable store selector to prevent re-renders
-  const storeState = useGameStore();
+  // Use individual selectors to prevent unnecessary re-renders
+  const gameState = useGameStore((state) => state.gameState);
+  const showSettings = useGameStore((state) => state.showSettings);
+  const showLeaderboard = useGameStore((state) => state.showLeaderboard);
+  const snake = useGameStore((state) => state.snake);
+  const food = useGameStore((state) => state.food);
+  const direction = useGameStore((state) => state.direction);
+  const score = useGameStore((state) => state.score);
+  const settings = useGameStore((state) => state.settings);
+
+  // Store actions as refs to avoid recreating callbacks
+  const storeActions = useRef({
+    pauseGame: useGameStore.getState().pauseGame,
+    resetGame: useGameStore.getState().resetGame,
+    moveSnake: useGameStore.getState().moveSnake,
+    updateGame: useGameStore.getState().updateGame,
+    toggleSettings: useGameStore.getState().toggleSettings,
+    toggleLeaderboard: useGameStore.getState().toggleLeaderboard,
+    startGame: useGameStore.getState().startGame,
+  });
+
+  // Update refs when store changes (but don't trigger re-renders)
+  useEffect(() => {
+    const state = useGameStore.getState();
+    storeActions.current = {
+      pauseGame: state.pauseGame,
+      resetGame: state.resetGame,
+      moveSnake: state.moveSnake,
+      updateGame: state.updateGame,
+      toggleSettings: state.toggleSettings,
+      toggleLeaderboard: state.toggleLeaderboard,
+      startGame: state.startGame,
+    };
+  });
 
   const gameLoopRef = useRef<number>();
   const lastUpdateRef = useRef<number>(0);
@@ -43,66 +76,64 @@ export const SnakeGame: React.FC = () => {
     setIsInitialized(true);
   }, []);
 
-  // Stable key handler
-  const handleKeyPress = useCallback(
-    (event: KeyboardEvent) => {
-      console.log('Key pressed:', event.key, 'Game state:', storeState.gameState);
-      const key = event.key.toLowerCase();
-      
-      // Global controls
-      if (key === 'escape') {
-        if (storeState.gameState === 'playing') storeState.pauseGame();
-        else if (storeState.gameState === 'paused') storeState.pauseGame();
-        else if (storeState.showSettings || storeState.showLeaderboard) {
-          storeState.toggleSettings();
-          storeState.toggleLeaderboard();
-        }
-        event.preventDefault();
-        return;
+  // Stable key handler with no dependencies
+  const handleKeyPress = useCallback((event: KeyboardEvent) => {
+    console.log('Key pressed:', event.key);
+    const key = event.key.toLowerCase();
+    const currentState = useGameStore.getState();
+    
+    // Global controls
+    if (key === 'escape') {
+      if (currentState.gameState === 'playing') currentState.pauseGame();
+      else if (currentState.gameState === 'paused') currentState.pauseGame();
+      else if (currentState.showSettings || currentState.showLeaderboard) {
+        currentState.toggleSettings();
+        currentState.toggleLeaderboard();
       }
-      
-      if (key === 'h') {
-        if (storeState.gameState === 'menu') return;
-        storeState.resetGame();
-        event.preventDefault();
-        return;
-      }
-
-      if (storeState.gameState !== 'playing') return;
-
-      let newDirection = storeState.direction;
-
-      switch (key) {
-        case 'arrowup':
-        case 'w':
-          if (storeState.direction !== 'down') newDirection = 'up';
-          break;
-        case 'arrowdown':
-        case 's':
-          if (storeState.direction !== 'up') newDirection = 'down';
-          break;
-        case 'arrowleft':
-        case 'a':
-          if (storeState.direction !== 'right') newDirection = 'left';
-          break;
-        case 'arrowright':
-        case 'd':
-          if (storeState.direction !== 'left') newDirection = 'right';
-          break;
-        case ' ':
-          event.preventDefault();
-          storeState.pauseGame();
-          return;
-      }
-
-      if (newDirection !== storeState.direction) {
-        storeState.moveSnake(newDirection);
-      }
-
       event.preventDefault();
-    },
-    [] // Empty dependency array - we'll access storeState directly
-  );
+      return;
+    }
+    
+    if (key === 'h') {
+      if (currentState.gameState === 'menu') return;
+      currentState.resetGame();
+      event.preventDefault();
+      return;
+    }
+
+    if (currentState.gameState !== 'playing') return;
+
+    let newDirection = currentState.direction;
+
+    switch (key) {
+      case 'arrowup':
+      case 'w':
+        if (currentState.direction !== 'down') newDirection = 'up';
+        break;
+      case 'arrowdown':
+      case 's':
+        if (currentState.direction !== 'up') newDirection = 'down';
+        break;
+      case 'arrowleft':
+      case 'a':
+        if (currentState.direction !== 'right') newDirection = 'left';
+        break;
+      case 'arrowright':
+      case 'd':
+        if (currentState.direction !== 'left') newDirection = 'right';
+        break;
+      case ' ':
+        event.preventDefault();
+        currentState.pauseGame();
+        return;
+    }
+
+    if (newDirection !== currentState.direction) {
+      currentState.moveSnake(newDirection);
+    }
+
+    event.preventDefault();
+  }, []); // Empty dependency array
 
   // Keyboard event listener
   useEffect(() => {
@@ -114,30 +145,27 @@ export const SnakeGame: React.FC = () => {
     };
   }, [handleKeyPress]);
 
-  // Game loop
-  const gameLoop = useCallback(
-    (timestamp: number) => {
-      const currentState = useGameStore.getState();
-      if (currentState.gameState === 'playing') {
-        // Dynamic game speed based on score
-        const baseSpeed = 400;
-        const speedIncrease = Math.floor(currentState.score / 50) * 20;
-        const gameSpeed = Math.max(150, baseSpeed - currentState.settings.gameSpeed * 30 - speedIncrease);
-        
-        if (timestamp - lastUpdateRef.current > gameSpeed) {
-          currentState.updateGame();
-          lastUpdateRef.current = timestamp;
-        }
-        gameLoopRef.current = requestAnimationFrame(gameLoop);
+  // Game loop with no dependencies
+  const gameLoop = useCallback((timestamp: number) => {
+    const currentState = useGameStore.getState();
+    if (currentState.gameState === 'playing') {
+      // Dynamic game speed based on score
+      const baseSpeed = 400;
+      const speedIncrease = Math.floor(currentState.score / 50) * 20;
+      const gameSpeed = Math.max(150, baseSpeed - currentState.settings.gameSpeed * 30 - speedIncrease);
+      
+      if (timestamp - lastUpdateRef.current > gameSpeed) {
+        currentState.updateGame();
+        lastUpdateRef.current = timestamp;
       }
-    },
-    [] // Empty dependency array
-  );
+      gameLoopRef.current = requestAnimationFrame(gameLoop);
+    }
+  }, []); // Empty dependency array
 
-  // Game loop management
+  // Game loop management - only depend on gameState
   useEffect(() => {
-    console.log('Game loop effect, state:', storeState.gameState);
-    if (storeState.gameState === 'playing') {
+    console.log('Game loop effect, state:', gameState);
+    if (gameState === 'playing') {
       lastUpdateRef.current = performance.now();
       gameLoopRef.current = requestAnimationFrame(gameLoop);
     } else if (gameLoopRef.current) {
@@ -149,9 +177,9 @@ export const SnakeGame: React.FC = () => {
         cancelAnimationFrame(gameLoopRef.current);
       }
     };
-  }, [storeState.gameState, gameLoop]);
+  }, [gameState, gameLoop]);
 
-  // Stable callback functions
+  // Stable callback functions with no dependencies
   const handleFoodEaten = useCallback(() => {
     console.log('Food eaten');
     const newEffect = {
@@ -185,37 +213,38 @@ export const SnakeGame: React.FC = () => {
 
   // Reset game over flag when game starts
   useEffect(() => {
-    if (storeState.gameState === 'playing') {
+    if (gameState === 'playing') {
       gameOverHandledRef.current = false;
     }
-  }, [storeState.gameState]);
+  }, [gameState]);
 
   // Game over handling
   useEffect(() => {
-    if (storeState.gameState === 'gameOver' && !gameOverHandledRef.current) {
+    if (gameState === 'gameOver' && !gameOverHandledRef.current) {
       gameOverHandledRef.current = true;
     }
-  }, [storeState.gameState]);
+  }, [gameState]);
 
   const handlePauseToggle = useCallback(() => {
     console.log('Pause toggle');
-    if (storeState.gameState === 'playing') {
-      storeState.pauseGame();
-    } else if (storeState.gameState === 'paused') {
-      storeState.pauseGame();
+    const currentState = useGameStore.getState();
+    if (currentState.gameState === 'playing') {
+      currentState.pauseGame();
+    } else if (currentState.gameState === 'paused') {
+      currentState.pauseGame();
     }
-  }, [storeState.gameState, storeState.pauseGame]);
+  }, []);
 
   console.log('About to render, states:', { 
-    gameState: storeState.gameState, 
-    showSettings: storeState.showSettings, 
-    showLeaderboard: storeState.showLeaderboard, 
+    gameState, 
+    showSettings, 
+    showLeaderboard, 
     isInitialized 
   });
 
-  if (storeState.showSettings) return <SettingsPanel />;
-  if (storeState.showLeaderboard) return <Leaderboard />;
-  if (storeState.gameState === 'menu') return <StartScreen />;
+  if (showSettings) return <SettingsPanel />;
+  if (showLeaderboard) return <Leaderboard />;
+  if (gameState === 'menu') return <StartScreen />;
   if (!isInitialized) {
     return (
       <div className="w-full h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black flex items-center justify-center">
@@ -255,20 +284,20 @@ export const SnakeGame: React.FC = () => {
       >
         <Suspense fallback={null}>
           <StaticCamera 
-            snakeHead={storeState.snake[0] || { x: 10, z: 10 }}
+            snakeHead={snake[0] || { x: 10, z: 10 }}
             shake={cameraShake}
           />
           
           <ElegantEnvironment />
           
           <AnimatedSnake
-            segments={storeState.snake}
-            isAlive={storeState.gameState === 'playing'}
-            direction={storeState.direction}
-            score={storeState.score}
+            segments={snake}
+            isAlive={gameState === 'playing'}
+            direction={direction}
+            score={score}
           />
           
-          {storeState.food.map((item, i) => (
+          {food.map((item, i) => (
             <RealisticFruit
               key={`fruit-${i}-${item.x}-${item.z}`}
               food={item}
@@ -297,12 +326,12 @@ export const SnakeGame: React.FC = () => {
               onClick={handlePauseToggle}
               className="flex items-center justify-center px-4 py-3 bg-gradient-to-r from-yellow-600 to-orange-600 text-white rounded-lg hover:from-yellow-500 hover:to-orange-500 transition-all duration-300 text-sm font-medium shadow-lg transform hover:scale-105"
             >
-              <span className="mr-2">{storeState.gameState === 'paused' ? '▶️' : '⏸️'}</span>
-              {storeState.gameState === 'paused' ? 'Resume' : 'Pause'}
+              <span className="mr-2">{gameState === 'paused' ? '▶️' : '⏸️'}</span>
+              {gameState === 'paused' ? 'Resume' : 'Pause'}
             </button>
             
             <button
-              onClick={storeState.resetGame}
+              onClick={() => storeActions.current.resetGame()}
               className="flex items-center justify-center px-4 py-3 bg-gradient-to-r from-red-600 to-orange-600 text-white rounded-lg hover:from-red-500 hover:to-orange-500 transition-all duration-300 text-sm font-medium shadow-lg transform hover:scale-105"
             >
               <span className="mr-2">🏠</span>
@@ -313,7 +342,7 @@ export const SnakeGame: React.FC = () => {
         
         <div className="absolute top-4 left-4 pointer-events-none">
           <div className="flex flex-col gap-3">
-            {storeState.gameState === 'playing' && (
+            {gameState === 'playing' && (
               <div className="bg-black/50 backdrop-blur-md border border-green-500/40 rounded-lg p-3">
                 <div className="flex items-center space-x-3">
                   <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
@@ -344,7 +373,8 @@ export const SnakeGame: React.FC = () => {
           <button
             onTouchStart={(e) => {
               e.preventDefault();
-              if (storeState.direction !== 'down') storeState.moveSnake('up');
+              const currentState = useGameStore.getState();
+              if (currentState.direction !== 'down') currentState.moveSnake('up');
             }}
             className="w-12 h-12 bg-gradient-to-t from-cyan-600 to-cyan-400 border border-cyan-300 rounded-lg flex items-center justify-center backdrop-blur-md shadow-lg"
           >
@@ -354,7 +384,8 @@ export const SnakeGame: React.FC = () => {
           <button
             onTouchStart={(e) => {
               e.preventDefault();
-              if (storeState.direction !== 'right') storeState.moveSnake('left');
+              const currentState = useGameStore.getState();
+              if (currentState.direction !== 'right') currentState.moveSnake('left');
             }}
             className="w-12 h-12 bg-gradient-to-r from-cyan-600 to-cyan-400 border border-cyan-300 rounded-lg flex items-center justify-center backdrop-blur-md shadow-lg"
           >
@@ -372,7 +403,8 @@ export const SnakeGame: React.FC = () => {
           <button
             onTouchStart={(e) => {
               e.preventDefault();
-              if (storeState.direction !== 'left') storeState.moveSnake('right');
+              const currentState = useGameStore.getState();
+              if (currentState.direction !== 'left') currentState.moveSnake('right');
             }}
             className="w-12 h-12 bg-gradient-to-l from-cyan-600 to-cyan-400 border border-cyan-300 rounded-lg flex items-center justify-center backdrop-blur-md shadow-lg"
           >
@@ -382,7 +414,8 @@ export const SnakeGame: React.FC = () => {
           <button
             onTouchStart={(e) => {
               e.preventDefault();
-              if (storeState.direction !== 'up') storeState.moveSnake('down');
+              const currentState = useGameStore.getState();
+              if (currentState.direction !== 'up') currentState.moveSnake('down');
             }}
             className="w-12 h-12 bg-gradient-to-b from-cyan-600 to-cyan-400 border border-cyan-300 rounded-lg flex items-center justify-center backdrop-blur-md shadow-lg"
           >
@@ -392,7 +425,7 @@ export const SnakeGame: React.FC = () => {
         </div>
       </div>
 
-      {storeState.gameState === 'paused' && (
+      {gameState === 'paused' && (
         <div className="absolute inset-0 bg-black/60 flex items-center justify-center pointer-events-none">
           <div className="text-center">
             <div className="text-6xl font-bold text-cyan-400 mb-4 animate-pulse">PAUSED</div>
@@ -402,26 +435,26 @@ export const SnakeGame: React.FC = () => {
         </div>
       )}
 
-      {storeState.gameState === 'gameOver' && (
+      {gameState === 'gameOver' && (
         <div className="absolute inset-0 bg-black/80 flex items-center justify-center pointer-events-auto">
           <div className="text-center p-8 bg-gray-900/90 rounded-xl border border-red-500 max-w-md">
             <div className="text-5xl font-bold text-red-400 mb-4 animate-pulse">GAME OVER</div>
-            <div className="text-red-300 font-mono mb-6 text-xl">Final Score: {storeState.score}</div>
+            <div className="text-red-300 font-mono mb-6 text-xl">Final Score: {score}</div>
             <div className="flex flex-col gap-4">
               <button
-                onClick={() => storeState.startGame('classic')}
+                onClick={() => storeActions.current.startGame('classic')}
                 className="w-full px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg hover:from-cyan-500 hover:to-blue-500 transition-all duration-200 font-bold"
               >
                 RESTART MISSION
               </button>
               <button
-                onClick={storeState.resetGame}
+                onClick={() => storeActions.current.resetGame()}
                 className="w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-500 hover:to-pink-500 transition-all duration-200 font-bold"
               >
                 RETURN HOME
               </button>
               <button
-                onClick={storeState.toggleLeaderboard}
+                onClick={() => storeActions.current.toggleLeaderboard()}
                 className="w-full px-6 py-3 bg-gradient-to-r from-yellow-600 to-orange-600 text-white rounded-lg hover:from-yellow-500 hover:to-orange-500 transition-all duration-200 font-bold"
               >
                 LEADERBOARD
