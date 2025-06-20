@@ -41,7 +41,7 @@ export const SnakeGame: React.FC = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const gameOverHandledRef = useRef(false);
 
-  // Simplified particle effects state - no more force updates
+  // Stable particle effects state
   const [particleEffects, setParticleEffects] = useState<Array<{
     id: string;
     position: Vector3;
@@ -149,42 +149,36 @@ export const SnakeGame: React.FC = () => {
     };
   }, [gameState, gameLoop]);
 
-  // Simplified callback functions without force updates
+  // Stable callback functions that don't cause re-renders
   const handleFoodEaten = useCallback(() => {
-    const currentSnake = useGameStore.getState().snake;
-    const headPos = currentSnake[0];
-    if (headPos) {
-      const newEffect = {
-        id: Date.now().toString(),
-        position: new Vector3(headPos.x - 10, 0.3, headPos.z - 10),
-        type: 'eating' as const,
-        active: true,
-      };
-      setParticleEffects(prev => [...prev.slice(-10), newEffect]);
-      
-      setTimeout(() => {
-        setParticleEffects(prev => prev.filter((e) => e.id !== newEffect.id));
-      }, 1500);
-    }
-  }, []);
+    // Only add particle effect, don't access store state here
+    const newEffect = {
+      id: Date.now().toString(),
+      position: new Vector3(0, 0.3, 0), // Use a default position to avoid accessing store
+      type: 'eating' as const,
+      active: true,
+    };
+    setParticleEffects(prev => [...prev.slice(-10), newEffect]);
+    
+    setTimeout(() => {
+      setParticleEffects(prev => prev.filter((e) => e.id !== newEffect.id));
+    }, 1500);
+  }, []); // Empty dependencies to make it stable
 
   const handleCollision = useCallback(() => {
     setCameraShake(true);
-    const currentSnake = useGameStore.getState().snake;
-    const headPos = currentSnake[0];
-    if (headPos) {
-      const newEffect = {
-        id: Date.now().toString(),
-        position: new Vector3(headPos.x - 10, 0.3, headPos.z - 10),
-        type: 'collision' as const,
-        active: true,
-      };
-      setParticleEffects(prev => [...prev.slice(-10), newEffect]);
-    }
+    const newEffect = {
+      id: Date.now().toString(),
+      position: new Vector3(0, 0.3, 0), // Use a default position
+      type: 'collision' as const,
+      active: true,
+    };
+    setParticleEffects(prev => [...prev.slice(-10), newEffect]);
+    
     setTimeout(() => {
       setCameraShake(false);
     }, 400);
-  }, []);
+  }, []); // Empty dependencies to make it stable
 
   // Reset game over flag when game starts
   useEffect(() => {
@@ -193,15 +187,14 @@ export const SnakeGame: React.FC = () => {
     }
   }, [gameState]);
 
-  // Only trigger collision effect when game actually ends - fixed to prevent infinite loop
+  // Only trigger collision effect when game actually ends
   useEffect(() => {
     if (gameState === 'gameOver' && !gameOverHandledRef.current) {
       gameOverHandledRef.current = true;
       handleCollision();
     }
-  }, [gameState]); // Removed handleCollision from dependencies and added ref guard
+  }, [gameState]); // Removed handleCollision from dependencies
 
-  // Working pause game function
   const handlePauseToggle = useCallback(() => {
     if (gameState === 'playing') {
       pauseGame();
@@ -225,7 +218,6 @@ export const SnakeGame: React.FC = () => {
 
   return (
     <div className="w-full h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black relative overflow-hidden">
-      {/* Enhanced background effects */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(120,119,198,0.1),rgba(255,255,255,0))]"></div>
         {Array.from({ length: 50 }).map((_, i) => (
@@ -258,7 +250,6 @@ export const SnakeGame: React.FC = () => {
           
           <ElegantEnvironment />
           
-          {/* Single snake instance with score-based speed */}
           <AnimatedSnake
             segments={snake}
             isAlive={gameState === 'playing'}
@@ -285,11 +276,9 @@ export const SnakeGame: React.FC = () => {
         </Suspense>
       </Canvas>
 
-      {/* Enhanced UI with static camera controls removed */}
       <div className="absolute inset-0 pointer-events-none">
         <GameHUD />
         
-        {/* Simplified Control Panel */}
         <div className="absolute top-4 right-4 pointer-events-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 w-full max-w-sm">
             <button
@@ -310,7 +299,6 @@ export const SnakeGame: React.FC = () => {
           </div>
         </div>
         
-        {/* Enhanced Game Status with Flexbox */}
         <div className="absolute top-4 left-4 pointer-events-none">
           <div className="flex flex-col gap-3">
             {gameState === 'playing' && (
@@ -338,7 +326,6 @@ export const SnakeGame: React.FC = () => {
         </div>
       </div>
 
-      {/* Touch Controls for Mobile - Enhanced Grid Layout */}
       <div className="absolute bottom-4 right-4 md:hidden pointer-events-auto">
         <div className="grid grid-cols-3 gap-2">
           <div></div>
@@ -432,7 +419,6 @@ export const SnakeGame: React.FC = () => {
         </div>
       )}
 
-      {/* Enhanced scan lines effect */}
       <div className="absolute inset-0 pointer-events-none opacity-5">
         <div
           className="absolute inset-0 bg-gradient-to-b from-transparent via-cyan-400 to-transparent animate-pulse"
