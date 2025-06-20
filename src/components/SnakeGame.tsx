@@ -1,3 +1,4 @@
+
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Suspense } from 'react';
@@ -18,17 +19,24 @@ import { RealisticFruit } from './3d/RealisticFruit';
 import { Vector3 } from 'three';
 
 export const SnakeGame: React.FC = () => {
-  const store = useGameStore();
-  const {
-    gameState,
-    snake,
-    food,
-    score,
-    direction,
-    settings,
-    showSettings,
-    showLeaderboard,
-  } = store;
+  // Select only specific values from store to avoid object reference issues
+  const gameState = useGameStore(state => state.gameState);
+  const snake = useGameStore(state => state.snake);
+  const food = useGameStore(state => state.food);
+  const score = useGameStore(state => state.score);
+  const direction = useGameStore(state => state.direction);
+  const settings = useGameStore(state => state.settings);
+  const showSettings = useGameStore(state => state.showSettings);
+  const showLeaderboard = useGameStore(state => state.showLeaderboard);
+  
+  // Store actions separately to avoid recreating them
+  const moveSnake = useGameStore(state => state.moveSnake);
+  const pauseGame = useGameStore(state => state.pauseGame);
+  const resetGame = useGameStore(state => state.resetGame);
+  const updateGame = useGameStore(state => state.updateGame);
+  const startGame = useGameStore(state => state.startGame);
+  const toggleSettings = useGameStore(state => state.toggleSettings);
+  const toggleLeaderboard = useGameStore(state => state.toggleLeaderboard);
 
   const gameLoopRef = useRef<number>();
   const lastUpdateRef = useRef<number>(0);
@@ -48,68 +56,63 @@ export const SnakeGame: React.FC = () => {
     setIsInitialized(true);
   }, []);
 
-  // Stable store function references
-  const storeRef = useRef(store);
-  storeRef.current = store;
-
   const handleKeyPress = useCallback(
     (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
-      const currentStore = storeRef.current;
       
       // Global controls
       if (key === 'escape') {
-        if (currentStore.gameState === 'playing') currentStore.pauseGame();
-        else if (currentStore.gameState === 'paused') currentStore.pauseGame();
-        else if (currentStore.showSettings || currentStore.showLeaderboard) {
-          currentStore.toggleSettings();
-          currentStore.toggleLeaderboard();
+        if (gameState === 'playing') pauseGame();
+        else if (gameState === 'paused') pauseGame();
+        else if (showSettings || showLeaderboard) {
+          toggleSettings();
+          toggleLeaderboard();
         }
         event.preventDefault();
         return;
       }
       
       if (key === 'h') {
-        if (currentStore.gameState === 'menu') return;
-        currentStore.resetGame();
+        if (gameState === 'menu') return;
+        resetGame();
         event.preventDefault();
         return;
       }
 
-      if (currentStore.gameState !== 'playing') return;
+      if (gameState !== 'playing') return;
 
-      let newDirection = currentStore.direction;
+      let newDirection = direction;
 
       switch (key) {
         case 'arrowup':
         case 'w':
-          if (currentStore.direction !== 'down') newDirection = 'up';
+          if (direction !== 'down') newDirection = 'up';
           break;
         case 'arrowdown':
         case 's':
-          if (currentStore.direction !== 'up') newDirection = 'down';
+          if (direction !== 'up') newDirection = 'down';
           break;
         case 'arrowleft':
         case 'a':
-          if (currentStore.direction !== 'right') newDirection = 'left';
+          if (direction !== 'right') newDirection = 'left';
           break;
         case 'arrowright':
         case 'd':
-          if (currentStore.direction !== 'left') newDirection = 'right';
+          if (direction !== 'left') newDirection = 'right';
           break;
         case ' ':
           event.preventDefault();
-          currentStore.pauseGame();
+          pauseGame();
           return;
       }
 
-      if (newDirection !== currentStore.direction) {
-        currentStore.moveSnake(newDirection);
+      if (newDirection !== direction) {
+        moveSnake(newDirection);
       }
 
       event.preventDefault();
     },
-    [] // Empty dependencies - use ref to access current store
+    [gameState, direction, showSettings, showLeaderboard, pauseGame, resetGame, moveSnake, toggleSettings, toggleLeaderboard]
   );
 
   useEffect(() => {
@@ -119,21 +122,20 @@ export const SnakeGame: React.FC = () => {
 
   const gameLoop = useCallback(
     (timestamp: number) => {
-      const currentStore = storeRef.current;
-      if (currentStore.gameState === 'playing') {
+      if (gameState === 'playing') {
         // Dynamic game speed based on score
         const baseSpeed = 400;
-        const speedIncrease = Math.floor(currentStore.score / 50) * 20; // Increase speed every 50 points
-        const gameSpeed = Math.max(150, baseSpeed - currentStore.settings.gameSpeed * 30 - speedIncrease);
+        const speedIncrease = Math.floor(score / 50) * 20; // Increase speed every 50 points
+        const gameSpeed = Math.max(150, baseSpeed - settings.gameSpeed * 30 - speedIncrease);
         
         if (timestamp - lastUpdateRef.current > gameSpeed) {
-          currentStore.updateGame();
+          updateGame();
           lastUpdateRef.current = timestamp;
         }
         gameLoopRef.current = requestAnimationFrame(gameLoop);
       }
     },
-    [] // Empty dependencies - use ref to access current store
+    [gameState, score, settings.gameSpeed, updateGame]
   );
 
   useEffect(() => {
@@ -191,16 +193,15 @@ export const SnakeGame: React.FC = () => {
     if (gameState === 'gameOver' && !gameOverHandledRef.current) {
       gameOverHandledRef.current = true;
     }
-  }, [gameState]); // Removed handleCollision from dependencies
+  }, [gameState]);
 
   const handlePauseToggle = useCallback(() => {
-    const currentStore = storeRef.current;
-    if (currentStore.gameState === 'playing') {
-      currentStore.pauseGame();
-    } else if (currentStore.gameState === 'paused') {
-      currentStore.pauseGame(); // This should resume the game
+    if (gameState === 'playing') {
+      pauseGame();
+    } else if (gameState === 'paused') {
+      pauseGame(); // This should resume the game
     }
-  }, []); // Empty dependencies - use ref to access current store
+  }, [gameState, pauseGame]);
 
   if (showSettings) return <SettingsPanel />;
   if (showLeaderboard) return <Leaderboard />;
@@ -289,7 +290,7 @@ export const SnakeGame: React.FC = () => {
             </button>
             
             <button
-              onClick={() => storeRef.current.resetGame()}
+              onClick={resetGame}
               className="flex items-center justify-center px-4 py-3 bg-gradient-to-r from-red-600 to-orange-600 text-white rounded-lg hover:from-red-500 hover:to-orange-500 transition-all duration-300 text-sm font-medium shadow-lg transform hover:scale-105"
             >
               <span className="mr-2">🏠</span>
@@ -331,7 +332,7 @@ export const SnakeGame: React.FC = () => {
           <button
             onTouchStart={(e) => {
               e.preventDefault();
-              if (storeRef.current.direction !== 'down') storeRef.current.moveSnake('up');
+              if (direction !== 'down') moveSnake('up');
             }}
             className="w-12 h-12 bg-gradient-to-t from-cyan-600 to-cyan-400 border border-cyan-300 rounded-lg flex items-center justify-center backdrop-blur-md shadow-lg"
           >
@@ -341,7 +342,7 @@ export const SnakeGame: React.FC = () => {
           <button
             onTouchStart={(e) => {
               e.preventDefault();
-              if (storeRef.current.direction !== 'right') storeRef.current.moveSnake('left');
+              if (direction !== 'right') moveSnake('left');
             }}
             className="w-12 h-12 bg-gradient-to-r from-cyan-600 to-cyan-400 border border-cyan-300 rounded-lg flex items-center justify-center backdrop-blur-md shadow-lg"
           >
@@ -359,7 +360,7 @@ export const SnakeGame: React.FC = () => {
           <button
             onTouchStart={(e) => {
               e.preventDefault();
-              if (storeRef.current.direction !== 'left') storeRef.current.moveSnake('right');
+              if (direction !== 'left') moveSnake('right');
             }}
             className="w-12 h-12 bg-gradient-to-l from-cyan-600 to-cyan-400 border border-cyan-300 rounded-lg flex items-center justify-center backdrop-blur-md shadow-lg"
           >
@@ -369,7 +370,7 @@ export const SnakeGame: React.FC = () => {
           <button
             onTouchStart={(e) => {
               e.preventDefault();
-              if (storeRef.current.direction !== 'up') storeRef.current.moveSnake('down');
+              if (direction !== 'up') moveSnake('down');
             }}
             className="w-12 h-12 bg-gradient-to-b from-cyan-600 to-cyan-400 border border-cyan-300 rounded-lg flex items-center justify-center backdrop-blur-md shadow-lg"
           >
@@ -396,19 +397,19 @@ export const SnakeGame: React.FC = () => {
             <div className="text-red-300 font-mono mb-6 text-xl">Final Score: {score}</div>
             <div className="flex flex-col gap-4">
               <button
-                onClick={() => storeRef.current.startGame('classic')}
+                onClick={() => startGame('classic')}
                 className="w-full px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg hover:from-cyan-500 hover:to-blue-500 transition-all duration-200 font-bold"
               >
                 RESTART MISSION
               </button>
               <button
-                onClick={() => storeRef.current.resetGame()}
+                onClick={resetGame}
                 className="w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-500 hover:to-pink-500 transition-all duration-200 font-bold"
               >
                 RETURN HOME
               </button>
               <button
-                onClick={() => storeRef.current.toggleLeaderboard()}
+                onClick={toggleLeaderboard}
                 className="w-full px-6 py-3 bg-gradient-to-r from-yellow-600 to-orange-600 text-white rounded-lg hover:from-yellow-500 hover:to-orange-500 transition-all duration-200 font-bold"
               >
                 LEADERBOARD
