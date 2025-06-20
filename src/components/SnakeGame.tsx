@@ -1,4 +1,3 @@
-
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Suspense } from 'react';
@@ -21,22 +20,19 @@ import { Vector3 } from 'three';
 export const SnakeGame: React.FC = () => {
   console.log('SnakeGame render');
 
-  // Use a single selector to get all needed state at once
-  const gameData = useGameStore((state) => ({
-    gameState: state.gameState,
-    showSettings: state.showSettings,
-    showLeaderboard: state.showLeaderboard,
-    snake: state.snake,
-    food: state.food,
-    direction: state.direction,
-    score: state.score,
-    settings: state.settings,
-  }));
+  // Simple state selectors
+  const gameState = useGameStore((state) => state.gameState);
+  const showSettings = useGameStore((state) => state.showSettings);
+  const showLeaderboard = useGameStore((state) => state.showLeaderboard);
+  const snake = useGameStore((state) => state.snake);
+  const food = useGameStore((state) => state.food);
+  const direction = useGameStore((state) => state.direction);
+  const score = useGameStore((state) => state.score);
+  const settings = useGameStore((state) => state.settings);
 
   const gameLoopRef = useRef<number>();
   const lastUpdateRef = useRef<number>(0);
   const [isInitialized, setIsInitialized] = useState(false);
-  const gameOverHandledRef = useRef(false);
 
   // Stable particle effects state
   const [particleEffects, setParticleEffects] = useState<Array<{
@@ -57,56 +53,62 @@ export const SnakeGame: React.FC = () => {
   const handleKeyPress = useCallback((event: KeyboardEvent) => {
     console.log('Key pressed:', event.key);
     const key = event.key.toLowerCase();
-    const currentState = useGameStore.getState();
+    
+    // Get current state without causing re-renders
+    const currentGameState = useGameStore.getState().gameState;
+    const currentDirection = useGameStore.getState().direction;
+    const currentSnake = useGameStore.getState().snake;
+    const currentShowSettings = useGameStore.getState().showSettings;
+    const currentShowLeaderboard = useGameStore.getState().showLeaderboard;
     
     // Global controls
     if (key === 'escape') {
-      if (currentState.gameState === 'playing') currentState.pauseGame();
-      else if (currentState.gameState === 'paused') currentState.pauseGame();
-      else if (currentState.showSettings || currentState.showLeaderboard) {
-        currentState.toggleSettings();
-        currentState.toggleLeaderboard();
+      if (currentGameState === 'playing') useGameStore.getState().pauseGame();
+      else if (currentGameState === 'paused') useGameStore.getState().pauseGame();
+      else if (currentShowSettings || currentShowLeaderboard) {
+        useGameStore.getState().toggleSettings();
+        useGameStore.getState().toggleLeaderboard();
       }
       event.preventDefault();
       return;
     }
     
     if (key === 'h') {
-      if (currentState.gameState === 'menu') return;
-      currentState.resetGame();
+      if (currentGameState === 'menu') return;
+      useGameStore.getState().resetGame();
       event.preventDefault();
       return;
     }
 
-    if (currentState.gameState !== 'playing') return;
+    if (currentGameState !== 'playing') return;
 
-    let newDirection = currentState.direction;
+    let newDirection = currentDirection;
 
     switch (key) {
       case 'arrowup':
       case 'w':
-        if (currentState.direction !== 'down') newDirection = 'up';
+        if (currentDirection !== 'down') newDirection = 'up';
         break;
       case 'arrowdown':
       case 's':
-        if (currentState.direction !== 'up') newDirection = 'down';
+        if (currentDirection !== 'up') newDirection = 'down';
         break;
       case 'arrowleft':
       case 'a':
-        if (currentState.direction !== 'right') newDirection = 'left';
+        if (currentDirection !== 'right') newDirection = 'left';
         break;
       case 'arrowright':
       case 'd':
-        if (currentState.direction !== 'left') newDirection = 'right';
+        if (currentDirection !== 'left') newDirection = 'right';
         break;
       case ' ':
         event.preventDefault();
-        currentState.pauseGame();
+        useGameStore.getState().pauseGame();
         return;
     }
 
-    if (newDirection !== currentState.direction) {
-      currentState.moveSnake(newDirection);
+    if (newDirection !== currentDirection) {
+      useGameStore.getState().moveSnake(newDirection);
     }
 
     event.preventDefault();
@@ -141,8 +143,8 @@ export const SnakeGame: React.FC = () => {
 
   // Game loop management
   useEffect(() => {
-    console.log('Game loop effect, state:', gameData.gameState);
-    if (gameData.gameState === 'playing') {
+    console.log('Game loop effect, state:', gameState);
+    if (gameState === 'playing') {
       lastUpdateRef.current = performance.now();
       gameLoopRef.current = requestAnimationFrame(gameLoop);
     } else if (gameLoopRef.current) {
@@ -154,7 +156,7 @@ export const SnakeGame: React.FC = () => {
         cancelAnimationFrame(gameLoopRef.current);
       }
     };
-  }, [gameData.gameState, gameLoop]);
+  }, [gameState, gameLoop]);
 
   // Stable callback functions
   const handleFoodEaten = useCallback(() => {
@@ -188,28 +190,9 @@ export const SnakeGame: React.FC = () => {
     }, 400);
   }, []);
 
-  // Reset game over flag when game starts
-  useEffect(() => {
-    if (gameData.gameState === 'playing') {
-      gameOverHandledRef.current = false;
-    }
-  }, [gameData.gameState]);
-
-  // Game over handling
-  useEffect(() => {
-    if (gameData.gameState === 'gameOver' && !gameOverHandledRef.current) {
-      gameOverHandledRef.current = true;
-    }
-  }, [gameData.gameState]);
-
   const handlePauseToggle = useCallback(() => {
     console.log('Pause toggle');
-    const currentState = useGameStore.getState();
-    if (currentState.gameState === 'playing') {
-      currentState.pauseGame();
-    } else if (currentState.gameState === 'paused') {
-      currentState.pauseGame();
-    }
+    useGameStore.getState().pauseGame();
   }, []);
 
   const handleResetGame = useCallback(() => {
@@ -225,15 +208,15 @@ export const SnakeGame: React.FC = () => {
   }, []);
 
   console.log('About to render, states:', { 
-    gameState: gameData.gameState, 
-    showSettings: gameData.showSettings, 
-    showLeaderboard: gameData.showLeaderboard, 
+    gameState, 
+    showSettings, 
+    showLeaderboard, 
     isInitialized 
   });
 
-  if (gameData.showSettings) return <SettingsPanel />;
-  if (gameData.showLeaderboard) return <Leaderboard />;
-  if (gameData.gameState === 'menu') return <StartScreen />;
+  if (showSettings) return <SettingsPanel />;
+  if (showLeaderboard) return <Leaderboard />;
+  if (gameState === 'menu') return <StartScreen />;
   if (!isInitialized) {
     return (
       <div className="w-full h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black flex items-center justify-center">
@@ -273,20 +256,20 @@ export const SnakeGame: React.FC = () => {
       >
         <Suspense fallback={null}>
           <StaticCamera 
-            snakeHead={gameData.snake[0] || { x: 10, z: 10 }}
+            snakeHead={snake[0] || { x: 10, z: 10 }}
             shake={cameraShake}
           />
           
           <ElegantEnvironment />
           
           <AnimatedSnake
-            segments={gameData.snake}
-            isAlive={gameData.gameState === 'playing'}
-            direction={gameData.direction}
-            score={gameData.score}
+            segments={snake}
+            isAlive={gameState === 'playing'}
+            direction={direction}
+            score={score}
           />
           
-          {gameData.food.map((item, i) => (
+          {food.map((item, i) => (
             <RealisticFruit
               key={`fruit-${i}-${item.x}-${item.z}`}
               food={item}
@@ -315,8 +298,8 @@ export const SnakeGame: React.FC = () => {
               onClick={handlePauseToggle}
               className="flex items-center justify-center px-4 py-3 bg-gradient-to-r from-yellow-600 to-orange-600 text-white rounded-lg hover:from-yellow-500 hover:to-orange-500 transition-all duration-300 text-sm font-medium shadow-lg transform hover:scale-105"
             >
-              <span className="mr-2">{gameData.gameState === 'paused' ? '▶️' : '⏸️'}</span>
-              {gameData.gameState === 'paused' ? 'Resume' : 'Pause'}
+              <span className="mr-2">{gameState === 'paused' ? '▶️' : '⏸️'}</span>
+              {gameState === 'paused' ? 'Resume' : 'Pause'}
             </button>
             
             <button
@@ -331,7 +314,7 @@ export const SnakeGame: React.FC = () => {
         
         <div className="absolute top-4 left-4 pointer-events-none">
           <div className="flex flex-col gap-3">
-            {gameData.gameState === 'playing' && (
+            {gameState === 'playing' && (
               <div className="bg-black/50 backdrop-blur-md border border-green-500/40 rounded-lg p-3">
                 <div className="flex items-center space-x-3">
                   <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
@@ -414,7 +397,7 @@ export const SnakeGame: React.FC = () => {
         </div>
       </div>
 
-      {gameData.gameState === 'paused' && (
+      {gameState === 'paused' && (
         <div className="absolute inset-0 bg-black/60 flex items-center justify-center pointer-events-none">
           <div className="text-center">
             <div className="text-6xl font-bold text-cyan-400 mb-4 animate-pulse">PAUSED</div>
@@ -424,11 +407,11 @@ export const SnakeGame: React.FC = () => {
         </div>
       )}
 
-      {gameData.gameState === 'gameOver' && (
+      {gameState === 'gameOver' && (
         <div className="absolute inset-0 bg-black/80 flex items-center justify-center pointer-events-auto">
           <div className="text-center p-8 bg-gray-900/90 rounded-xl border border-red-500 max-w-md">
             <div className="text-5xl font-bold text-red-400 mb-4 animate-pulse">GAME OVER</div>
-            <div className="text-red-300 font-mono mb-6 text-xl">Final Score: {gameData.score}</div>
+            <div className="text-red-300 font-mono mb-6 text-xl">Final Score: {score}</div>
             <div className="flex flex-col gap-4">
               <button
                 onClick={() => handleStartGame('classic')}
