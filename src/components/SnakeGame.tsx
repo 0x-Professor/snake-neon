@@ -18,20 +18,20 @@ import { Vector3 } from 'three';
 export const SnakeGame: React.FC = () => {
   console.log('SnakeGame render');
 
-  // Individual stable selectors to prevent object recreation
-  const gameState = useGameStore(state => state.gameState);
-  const showSettings = useGameStore(state => state.showSettings);
-  const showLeaderboard = useGameStore(state => state.showLeaderboard);
-  const snake = useGameStore(state => state.snake);
-  const food = useGameStore(state => state.food);
-  const direction = useGameStore(state => state.direction);
-  const score = useGameStore(state => state.score);
+  // Use a single, stable selector that returns all needed state at once
+  const gameData = useGameStore((state) => ({
+    gameState: state.gameState,
+    showSettings: state.showSettings,
+    showLeaderboard: state.showLeaderboard,
+    snake: state.snake,
+    food: state.food,
+    direction: state.direction,
+    score: state.score,
+  }));
 
   const gameLoopRef = useRef<number>();
   const lastUpdateRef = useRef<number>(0);
   const [isInitialized, setIsInitialized] = useState(false);
-
-  // Stable particle effects state
   const [particleEffects, setParticleEffects] = useState<Array<{
     id: string;
     position: Vector3;
@@ -40,28 +40,22 @@ export const SnakeGame: React.FC = () => {
   }>>([]);
   const [cameraShake, setCameraShake] = useState(false);
 
-  // One-time initialization
+  // Initialize once
   useEffect(() => {
-    console.log('Setting initialized');
+    console.log('Initializing game');
     setIsInitialized(true);
   }, []);
 
-  // Stable key handler - no dependencies, gets state directly
+  // Stable keyboard handler
   const handleKeyPress = useCallback((event: KeyboardEvent) => {
     console.log('Key pressed:', event.key);
     const key = event.key.toLowerCase();
     
-    // Get current state directly from store
     const store = useGameStore.getState();
     
-    // Global controls
     if (key === 'escape') {
       if (store.gameState === 'playing') store.pauseGame();
       else if (store.gameState === 'paused') store.pauseGame();
-      else if (store.showSettings || store.showLeaderboard) {
-        store.toggleSettings();
-        store.toggleLeaderboard();
-      }
       event.preventDefault();
       return;
     }
@@ -105,40 +99,45 @@ export const SnakeGame: React.FC = () => {
     }
 
     event.preventDefault();
-  }, []); // Completely stable - no dependencies
+  }, []);
 
-  // Keyboard event listener - only depends on the stable handler
+  // Keyboard setup
   useEffect(() => {
-    console.log('Adding keydown listener');
+    console.log('Setting up keyboard listeners');
     window.addEventListener('keydown', handleKeyPress);
     return () => {
-      console.log('Removing keydown listener');
+      console.log('Cleaning up keyboard listeners');
       window.removeEventListener('keydown', handleKeyPress);
     };
   }, [handleKeyPress]);
 
-  // Stable game loop - no dependencies
-  const gameLoop = useCallback((timestamp: number) => {
-    const store = useGameStore.getState();
-    if (store.gameState === 'playing') {
-      const baseSpeed = 400;
-      const speedIncrease = Math.floor(store.score / 50) * 20;
-      const gameSpeed = Math.max(150, baseSpeed - store.settings.gameSpeed * 30 - speedIncrease);
-      
-      if (timestamp - lastUpdateRef.current > gameSpeed) {
-        store.updateGame();
-        lastUpdateRef.current = timestamp;
+  // Game loop - completely isolated
+  const runGameLoop = useCallback(() => {
+    const loop = (timestamp: number) => {
+      const store = useGameStore.getState();
+      if (store.gameState === 'playing') {
+        const baseSpeed = 400;
+        const speedIncrease = Math.floor(store.score / 50) * 20;
+        const gameSpeed = Math.max(150, baseSpeed - store.settings.gameSpeed * 30 - speedIncrease);
+        
+        if (timestamp - lastUpdateRef.current > gameSpeed) {
+          store.updateGame();
+          lastUpdateRef.current = timestamp;
+        }
+        gameLoopRef.current = requestAnimationFrame(loop);
       }
-      gameLoopRef.current = requestAnimationFrame(gameLoop);
-    }
-  }, []); // Completely stable - no dependencies
+    };
+    
+    lastUpdateRef.current = performance.now();
+    gameLoopRef.current = requestAnimationFrame(loop);
+  }, []);
 
-  // Game loop management - only when game state changes to/from playing
+  // Game loop management
   useEffect(() => {
-    console.log('Game loop effect, state:', gameState);
-    if (gameState === 'playing') {
-      lastUpdateRef.current = performance.now();
-      gameLoopRef.current = requestAnimationFrame(gameLoop);
+    console.log('Game loop effect, state:', gameData.gameState);
+    
+    if (gameData.gameState === 'playing') {
+      runGameLoop();
     } else if (gameLoopRef.current) {
       cancelAnimationFrame(gameLoopRef.current);
     }
@@ -148,71 +147,33 @@ export const SnakeGame: React.FC = () => {
         cancelAnimationFrame(gameLoopRef.current);
       }
     };
-  }, [gameState]); // Only gameState dependency
+  }, [gameData.gameState, runGameLoop]);
 
-  // Stable callback functions - no dependencies
-  const handleFoodEaten = useCallback(() => {
-    console.log('Food eaten');
+  // Stable event handlers
+  const addParticleEffect = useCallback((type: 'eating' | 'collision') => {
     const newEffect = {
       id: Date.now().toString(),
       position: new Vector3(0, 0.3, 0),
-      type: 'eating' as const,
+      type,
       active: true,
     };
     setParticleEffects(prev => [...prev.slice(-10), newEffect]);
+    
+    if (type === 'collision') {
+      setCameraShake(true);
+      setTimeout(() => setCameraShake(false), 400);
+    }
     
     setTimeout(() => {
       setParticleEffects(prev => prev.filter((e) => e.id !== newEffect.id));
     }, 1500);
   }, []);
 
-  const handleCollision = useCallback(() => {
-    console.log('Collision detected');
-    setCameraShake(true);
-    const newEffect = {
-      id: Date.now().toString(),
-      position: new Vector3(0, 0.3, 0),
-      type: 'collision' as const,
-      active: true,
-    };
-    setParticleEffects(prev => [...prev.slice(-10), newEffect]);
-    
-    setTimeout(() => {
-      setCameraShake(false);
-    }, 400);
-  }, []);
-
-  const handlePauseToggle = useCallback(() => {
-    console.log('Pause toggle');
-    useGameStore.getState().pauseGame();
-  }, []);
-
-  const handleResetGame = useCallback(() => {
-    useGameStore.getState().resetGame();
-  }, []);
-
-  const handleStartGame = useCallback((mode: 'classic' | 'survival' | 'multiplayer') => {
-    useGameStore.getState().startGame(mode);
-  }, []);
-
-  const handleToggleLeaderboard = useCallback(() => {
-    useGameStore.getState().toggleLeaderboard();
-  }, []);
-
-  const handleMoveSnake = useCallback((newDirection: 'up' | 'down' | 'left' | 'right') => {
-    useGameStore.getState().moveSnake(newDirection);
-  }, []);
-
-  console.log('About to render, states:', { 
-    gameState, 
-    showSettings, 
-    showLeaderboard, 
-    isInitialized 
-  });
-
-  if (showSettings) return <SettingsPanel />;
-  if (showLeaderboard) return <Leaderboard />;
-  if (gameState === 'menu') return <StartScreen />;
+  // Early returns for different states
+  if (gameData.showSettings) return <SettingsPanel />;
+  if (gameData.showLeaderboard) return <Leaderboard />;
+  if (gameData.gameState === 'menu') return <StartScreen />;
+  
   if (!isInitialized) {
     return (
       <div className="w-full h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black flex items-center justify-center">
@@ -244,7 +205,7 @@ export const SnakeGame: React.FC = () => {
 
       <SoundManager3D />
 
-      {/* Enhanced 3D Canvas with static camera */}
+      {/* 3D Canvas */}
       <Canvas
         shadows
         camera={{ position: [0, 25, 15], fov: 60, near: 0.1, far: 1000 }}
@@ -252,24 +213,24 @@ export const SnakeGame: React.FC = () => {
       >
         <Suspense fallback={null}>
           <StaticCamera 
-            snakeHead={snake[0] || { x: 10, z: 10 }}
+            snakeHead={gameData.snake[0] || { x: 10, z: 10 }}
             shake={cameraShake}
           />
           
           <ElegantEnvironment />
           
           <AnimatedSnake
-            segments={snake}
-            isAlive={gameState === 'playing'}
-            direction={direction}
-            score={score}
+            segments={gameData.snake}
+            isAlive={gameData.gameState === 'playing'}
+            direction={gameData.direction}
+            score={gameData.score}
           />
           
-          {food.map((item, i) => (
+          {gameData.food.map((item, i) => (
             <RealisticFruit
               key={`fruit-${i}-${item.x}-${item.z}`}
               food={item}
-              onEaten={handleFoodEaten}
+              onEaten={() => addParticleEffect('eating')}
             />
           ))}
           
@@ -284,22 +245,22 @@ export const SnakeGame: React.FC = () => {
         </Suspense>
       </Canvas>
 
-      {/* UI overlays and game state screens */}
+      {/* UI overlays */}
       <div className="absolute inset-0 pointer-events-none">
         <GameHUD />
         
         <div className="absolute top-4 right-4 pointer-events-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 w-full max-w-sm">
             <button
-              onClick={handlePauseToggle}
+              onClick={() => useGameStore.getState().pauseGame()}
               className="flex items-center justify-center px-4 py-3 bg-gradient-to-r from-yellow-600 to-orange-600 text-white rounded-lg hover:from-yellow-500 hover:to-orange-500 transition-all duration-300 text-sm font-medium shadow-lg transform hover:scale-105"
             >
-              <span className="mr-2">{gameState === 'paused' ? '▶️' : '⏸️'}</span>
-              {gameState === 'paused' ? 'Resume' : 'Pause'}
+              <span className="mr-2">{gameData.gameState === 'paused' ? '▶️' : '⏸️'}</span>
+              {gameData.gameState === 'paused' ? 'Resume' : 'Pause'}
             </button>
             
             <button
-              onClick={handleResetGame}
+              onClick={() => useGameStore.getState().resetGame()}
               className="flex items-center justify-center px-4 py-3 bg-gradient-to-r from-red-600 to-orange-600 text-white rounded-lg hover:from-red-500 hover:to-orange-500 transition-all duration-300 text-sm font-medium shadow-lg transform hover:scale-105"
             >
               <span className="mr-2">🏠</span>
@@ -310,7 +271,7 @@ export const SnakeGame: React.FC = () => {
         
         <div className="absolute top-4 left-4 pointer-events-none">
           <div className="flex flex-col gap-3">
-            {gameState === 'playing' && (
+            {gameData.gameState === 'playing' && (
               <div className="bg-black/50 backdrop-blur-md border border-green-500/40 rounded-lg p-3">
                 <div className="flex items-center space-x-3">
                   <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
@@ -326,7 +287,6 @@ export const SnakeGame: React.FC = () => {
                 <div className="font-semibold text-cyan-400 mb-2">CONTROLS</div>
                 <div>WASD/Arrows: Move</div>
                 <div>SPACE: Pause</div>
-                <div>C: Camera Mode</div>
                 <div>H: Home</div>
                 <div>ESC: Back/Pause</div>
               </div>
@@ -335,13 +295,14 @@ export const SnakeGame: React.FC = () => {
         </div>
       </div>
 
+      {/* Mobile controls */}
       <div className="absolute bottom-4 right-4 md:hidden pointer-events-auto">
         <div className="grid grid-cols-3 gap-2">
           <div></div>
           <button
             onTouchStart={(e) => {
               e.preventDefault();
-              handleMoveSnake('up');
+              useGameStore.getState().moveSnake('up');
             }}
             className="w-12 h-12 bg-gradient-to-t from-cyan-600 to-cyan-400 border border-cyan-300 rounded-lg flex items-center justify-center backdrop-blur-md shadow-lg"
           >
@@ -351,7 +312,7 @@ export const SnakeGame: React.FC = () => {
           <button
             onTouchStart={(e) => {
               e.preventDefault();
-              handleMoveSnake('left');
+              useGameStore.getState().moveSnake('left');
             }}
             className="w-12 h-12 bg-gradient-to-r from-cyan-600 to-cyan-400 border border-cyan-300 rounded-lg flex items-center justify-center backdrop-blur-md shadow-lg"
           >
@@ -360,7 +321,7 @@ export const SnakeGame: React.FC = () => {
           <button
             onTouchStart={(e) => {
               e.preventDefault();
-              handlePauseToggle();
+              useGameStore.getState().pauseGame();
             }}
             className="w-12 h-12 bg-gradient-to-t from-purple-600 to-purple-400 border border-purple-300 rounded-lg flex items-center justify-center backdrop-blur-md shadow-lg"
           >
@@ -369,7 +330,7 @@ export const SnakeGame: React.FC = () => {
           <button
             onTouchStart={(e) => {
               e.preventDefault();
-              handleMoveSnake('right');
+              useGameStore.getState().moveSnake('right');
             }}
             className="w-12 h-12 bg-gradient-to-l from-cyan-600 to-cyan-400 border border-cyan-300 rounded-lg flex items-center justify-center backdrop-blur-md shadow-lg"
           >
@@ -379,7 +340,7 @@ export const SnakeGame: React.FC = () => {
           <button
             onTouchStart={(e) => {
               e.preventDefault();
-              handleMoveSnake('down');
+              useGameStore.getState().moveSnake('down');
             }}
             className="w-12 h-12 bg-gradient-to-b from-cyan-600 to-cyan-400 border border-cyan-300 rounded-lg flex items-center justify-center backdrop-blur-md shadow-lg"
           >
@@ -389,7 +350,8 @@ export const SnakeGame: React.FC = () => {
         </div>
       </div>
 
-      {gameState === 'paused' && (
+      {/* Game state overlays */}
+      {gameData.gameState === 'paused' && (
         <div className="absolute inset-0 bg-black/60 flex items-center justify-center pointer-events-none">
           <div className="text-center">
             <div className="text-6xl font-bold text-cyan-400 mb-4 animate-pulse">PAUSED</div>
@@ -399,26 +361,26 @@ export const SnakeGame: React.FC = () => {
         </div>
       )}
 
-      {gameState === 'gameOver' && (
+      {gameData.gameState === 'gameOver' && (
         <div className="absolute inset-0 bg-black/80 flex items-center justify-center pointer-events-auto">
           <div className="text-center p-8 bg-gray-900/90 rounded-xl border border-red-500 max-w-md">
             <div className="text-5xl font-bold text-red-400 mb-4 animate-pulse">GAME OVER</div>
-            <div className="text-red-300 font-mono mb-6 text-xl">Final Score: {score}</div>
+            <div className="text-red-300 font-mono mb-6 text-xl">Final Score: {gameData.score}</div>
             <div className="flex flex-col gap-4">
               <button
-                onClick={() => handleStartGame('classic')}
+                onClick={() => useGameStore.getState().startGame('classic')}
                 className="w-full px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg hover:from-cyan-500 hover:to-blue-500 transition-all duration-200 font-bold"
               >
                 RESTART MISSION
               </button>
               <button
-                onClick={handleResetGame}
+                onClick={() => useGameStore.getState().resetGame()}
                 className="w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-500 hover:to-pink-500 transition-all duration-200 font-bold"
               >
                 RETURN HOME
               </button>
               <button
-                onClick={handleToggleLeaderboard}
+                onClick={() => useGameStore.getState().toggleLeaderboard()}
                 className="w-full px-6 py-3 bg-gradient-to-r from-yellow-600 to-orange-600 text-white rounded-lg hover:from-yellow-500 hover:to-orange-500 transition-all duration-200 font-bold"
               >
                 LEADERBOARD
@@ -428,6 +390,7 @@ export const SnakeGame: React.FC = () => {
         </div>
       )}
 
+      {/* Scan lines effect */}
       <div className="absolute inset-0 pointer-events-none opacity-5">
         <div
           className="absolute inset-0 bg-gradient-to-b from-transparent via-cyan-400 to-transparent animate-pulse"
