@@ -1,3 +1,4 @@
+
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Suspense } from 'react';
@@ -12,6 +13,9 @@ import { ProfessionalEnvironment } from './3d/ProfessionalEnvironment';
 import { AnimatedSnake } from './3d/AnimatedSnake';
 import { CameraController } from './3d/CameraController';
 import { SoundManager3D } from './3d/SoundManager3D';
+import { StaticCamera } from './3d/StaticCamera';
+import { ElegantEnvironment } from './3d/ElegantEnvironment';
+import { RealisticFruit } from './3d/RealisticFruit';
 import { Vector3 } from 'three';
 
 export const SnakeGame: React.FC = () => {
