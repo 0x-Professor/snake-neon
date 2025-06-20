@@ -48,8 +48,13 @@ export const SnakeGame: React.FC = () => {
     type: 'eating' | 'collision' | 'trail';
     active: boolean;
   }>>([]);
-  const [, forceUpdate] = useState({});
+  const [updateCounter, setUpdateCounter] = useState(0);
   const cameraShakeRef = useRef(false);
+
+  // Stable force update function
+  const forceUpdate = useCallback(() => {
+    setUpdateCounter(prev => prev + 1);
+  }, []);
 
   useEffect(() => {
     setIsInitialized(true);
@@ -159,15 +164,15 @@ export const SnakeGame: React.FC = () => {
         type: 'eating' as const,
         active: true,
       };
-      particleEffectsRef.current = particleEffectsRef.current.slice(-10).concat([newEffect]);
-      forceUpdate({});
+      particleEffectsRef.current = [...particleEffectsRef.current.slice(-10), newEffect];
+      forceUpdate();
       
       setTimeout(() => {
         particleEffectsRef.current = particleEffectsRef.current.filter((e) => e.id !== newEffect.id);
-        forceUpdate({});
+        forceUpdate();
       }, 1500);
     }
-  }, [snake]);
+  }, [snake, forceUpdate]);
 
   const handleCollision = useCallback(() => {
     cameraShakeRef.current = true;
@@ -179,18 +184,21 @@ export const SnakeGame: React.FC = () => {
         type: 'collision' as const,
         active: true,
       };
-      particleEffectsRef.current = particleEffectsRef.current.slice(-10).concat([newEffect]);
-      forceUpdate({});
+      particleEffectsRef.current = [...particleEffectsRef.current.slice(-10), newEffect];
+      forceUpdate();
     }
     setTimeout(() => {
       cameraShakeRef.current = false;
-      forceUpdate({});
+      forceUpdate();
     }, 400);
-  }, [snake]);
+  }, [snake, forceUpdate]);
 
+  // Only trigger collision effect when game actually ends
   useEffect(() => {
-    if (gameState === 'gameOver') handleCollision();
-  }, [gameState, handleCollision]);
+    if (gameState === 'gameOver') {
+      handleCollision();
+    }
+  }, [gameState]); // Removed handleCollision from dependencies to prevent loop
 
   // Working pause game function
   const handlePauseToggle = useCallback(() => {
