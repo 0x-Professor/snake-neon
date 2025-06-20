@@ -41,22 +41,14 @@ export const SnakeGame: React.FC = () => {
   const lastUpdateRef = useRef<number>(0);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Stable refs for particle effects to prevent re-render loops
-  const particleEffectsRef = useRef<Array<{
+  // Simplified particle effects state - no more force updates
+  const [particleEffects, setParticleEffects] = useState<Array<{
     id: string;
     position: Vector3;
     type: 'eating' | 'collision' | 'trail';
     active: boolean;
   }>>([]);
-  const cameraShakeRef = useRef(false);
-  const forceUpdateRef = useRef<() => void>();
-
-  // Initialize force update function once
-  const [, setForceUpdateTrigger] = useState(0);
-  
-  useEffect(() => {
-    forceUpdateRef.current = () => setForceUpdateTrigger(prev => prev + 1);
-  }, []);
+  const [cameraShake, setCameraShake] = useState(false);
 
   useEffect(() => {
     setIsInitialized(true);
@@ -157,53 +149,49 @@ export const SnakeGame: React.FC = () => {
     };
   }, [gameState, gameLoop]);
 
-  // Stable callback functions without changing dependencies
+  // Simplified callback functions without force updates
   const handleFoodEaten = useCallback(() => {
     const currentSnake = useGameStore.getState().snake;
     const headPos = currentSnake[0];
-    if (headPos && forceUpdateRef.current) {
+    if (headPos) {
       const newEffect = {
         id: Date.now().toString(),
         position: new Vector3(headPos.x - 10, 0.3, headPos.z - 10),
         type: 'eating' as const,
         active: true,
       };
-      particleEffectsRef.current = [...particleEffectsRef.current.slice(-10), newEffect];
-      forceUpdateRef.current();
+      setParticleEffects(prev => [...prev.slice(-10), newEffect]);
       
       setTimeout(() => {
-        particleEffectsRef.current = particleEffectsRef.current.filter((e) => e.id !== newEffect.id);
-        if (forceUpdateRef.current) forceUpdateRef.current();
+        setParticleEffects(prev => prev.filter((e) => e.id !== newEffect.id));
       }, 1500);
     }
   }, []);
 
   const handleCollision = useCallback(() => {
-    cameraShakeRef.current = true;
+    setCameraShake(true);
     const currentSnake = useGameStore.getState().snake;
     const headPos = currentSnake[0];
-    if (headPos && forceUpdateRef.current) {
+    if (headPos) {
       const newEffect = {
         id: Date.now().toString(),
         position: new Vector3(headPos.x - 10, 0.3, headPos.z - 10),
         type: 'collision' as const,
         active: true,
       };
-      particleEffectsRef.current = [...particleEffectsRef.current.slice(-10), newEffect];
-      forceUpdateRef.current();
+      setParticleEffects(prev => [...prev.slice(-10), newEffect]);
     }
     setTimeout(() => {
-      cameraShakeRef.current = false;
-      if (forceUpdateRef.current) forceUpdateRef.current();
+      setCameraShake(false);
     }, 400);
   }, []);
 
-  // Only trigger collision effect when game actually ends - removed handleCollision from dependencies
+  // Only trigger collision effect when game actually ends
   useEffect(() => {
     if (gameState === 'gameOver') {
       handleCollision();
     }
-  }, [gameState]); // Removed handleCollision to prevent circular dependency
+  }, [gameState, handleCollision]);
 
   // Working pause game function
   const handlePauseToggle = useCallback(() => {
@@ -257,7 +245,7 @@ export const SnakeGame: React.FC = () => {
         <Suspense fallback={null}>
           <StaticCamera 
             snakeHead={snake[0] || { x: 10, z: 10 }}
-            shake={cameraShakeRef.current}
+            shake={cameraShake}
           />
           
           <ElegantEnvironment />
@@ -278,7 +266,7 @@ export const SnakeGame: React.FC = () => {
             />
           ))}
           
-          {particleEffectsRef.current.map((effect) => (
+          {particleEffects.map((effect) => (
             <ParticleEffects
               key={effect.id}
               position={effect.position}
